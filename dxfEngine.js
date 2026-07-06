@@ -157,8 +157,9 @@
   function insertAsSafePreview(e) {
     // V6: DraftSight kurtarma hatasını tamamen kesmek için gerçek INSERT/BLOCK yazmıyoruz.
     // Blok yerini temiz R12 LINE/POLYLINE/TEXT ile gösteriyoruz.
-    const w = Math.max(20, Math.abs(e.previewW || 120) * Math.abs(e.scaleX || 1));
-    const h = Math.max(20, Math.abs(e.previewH || 80) * Math.abs(e.scaleY || 1));
+    // V6.2: previewW/previewH hedef mm ölçüsüdür. Eski blok scale değerlerini tekrar çarpmıyoruz.
+    const w = Math.max(20, Math.abs(e.previewW || 120));
+    const h = Math.max(20, Math.abs(e.previewH || 80));
     const x = Number(e.x) || 0;
     const y = Number(e.y) || 0;
     const layer = e.layer || 'BLOCKREF';

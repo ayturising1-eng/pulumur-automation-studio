@@ -63,7 +63,7 @@
     pergoTextOffset: 250
   };
 
-  const BUILD_LABEL = 'WEB DXF V6 - CLEAN R12 NO BLOCK INSERT - 06.07.2026';
+  const BUILD_LABEL = 'WEB DXF V6.2 - CLEAN R12 PREVIEW FIX - 06.07.2026';
 
   const SAMPLE_INPUT = {
     product: 'Pergo Rise',
@@ -545,8 +545,10 @@
       return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     }
     if (e.type === 'insert') {
-      const w = Math.abs(e.previewW || 120) * Math.abs(e.scaleX || 1);
-      const h = Math.abs(e.previewH || 80) * Math.abs(e.scaleY || 1);
+      // V6.2: previewW/previewH zaten hedef mm ölçüsüdür.
+      // Eski DXF blok scale değerlerini burada tekrar çarpmak önizlemeyi aşırı küçültüyordu.
+      const w = Math.abs(e.previewW || 120);
+      const h = Math.abs(e.previewH || 80);
       return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2];
     }
     return [0, 0, 0, 0];
@@ -593,8 +595,9 @@
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
         parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
       } else if (e.type === 'insert') {
-        const w = Math.abs(e.previewW || 120) * Math.abs(e.scaleX || 1);
-        const h = Math.abs(e.previewH || 80) * Math.abs(e.scaleY || 1);
+        // V6.2: önizlemede eski blok scale değerlerini yok sayıyoruz.
+        const w = Math.abs(e.previewW || 120);
+        const h = Math.abs(e.previewH || 80);
         const cx = sx(e.x), cy = sy(e.y);
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : '';
         parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><line x1="${cx - w / 2}" y1="${cy}" x2="${cx + w / 2}" y2="${cy}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><line x1="${cx}" y1="${cy - h / 2}" x2="${cx}" y2="${cy + h / 2}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`);
