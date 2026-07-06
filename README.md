@@ -1,37 +1,30 @@
-# Pülümür Automation Studio
+# Pülümür Automation Studio - V6.1 Clean R12
 
-Pergo Rise için web tabanlı tek poz parametrik çizim ve DXF üretim denemesi.
+Bu paket GitHub repo köküne doğrudan yüklenecek şekilde hazırlanmıştır. Zip içinde ekstra üst klasör yoktur; `index.html` direkt kökte olmalıdır.
 
-## V6 - Clean R12
+UI üzerindeki eski `Web DXF V4 Bloklu` yazısı kaldırıldı. Yeni sürüm etiketi: `Web DXF V6 Clean R12`.
 
-Bu sürümde DXF motoru özellikle DraftSight/AutoCAD açılış kararlılığı için yeniden sadeleştirildi.
+## Yükleme
 
-- DXF formatı: `AC1009 / AutoCAD R12`
-- Gerçek `BLOCK / INSERT` aktarımı kapatıldı.
-- Blok yerleri geçici olarak temiz `POLYLINE + LINE + TEXT` önizleme geometrisiyle çiziliyor.
-- Amaç: DraftSight açılışındaki "Teknik resim dosyasının kurtarılması gerekli" uyarısını kesmek.
-- Çizim geometrisi PERI01 tek poz koordinat mantığını takip eder.
-
-## Kullanım
-
-1. GitHub repo ana dizinine dosyaları yükle.
-2. GitHub Pages kaynağı olarak GitHub Actions veya `main / root` kullan.
-3. Web formunu doldur.
-4. `DXF Oluştur ve İndir` butonuna bas.
-
-## Dosya yapısı
+Zip'i açın ve içindeki dosyaları GitHub reposunun ana dizinine yükleyin. Repo ana ekranında şu dosyalar görünmeli:
 
 ```text
 index.html
 style.css
 app.js
-peri01Geometry.js
 dxfEngine.js
-samples/pergo-rise-v6-clean-r12-test.dxf
-samples/sample-input.json
+peri01Geometry.js
+README.md
+VERSION.txt
 .nojekyll
+samples/
+docs/
+tools/
+.github/
 ```
+
+GitHub Pages cache ihtimaline karşı CSS/JS bağlantılarına `?v=6.1` eklendi.
 
 ## Not
 
-V4/V5'te blokları `pulumurapp.dxf` içinden gömme denemesi yapıldı; bazı CAD programlarında recovery uyarısı verdiği için V6'da blok gömme kapatıldı. Temiz R12 çizim motoru stabil olduktan sonra bloklar tek tek güvenli şekilde geri eklenecek.
+Bu sürümde gerçek BLOCK/INSERT gömme kapalıdır. DXF temiz R12 mantığıyla üretilir. Blokların çizgisel yeniden üretimi ve etkileşimli önizleme sonraki aşamada eklenecektir.

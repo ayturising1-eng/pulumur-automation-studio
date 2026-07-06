@@ -1,0 +1,3 @@
+Pulumur Automation Studio V6.1 Clean R12 Root Package
+UI label fixed: no V4 bloklu text.
+Zip root contains index.html directly.
