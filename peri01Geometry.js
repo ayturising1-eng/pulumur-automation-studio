@@ -13,7 +13,52 @@
     DIM: { stroke: '#be123c', width: 2 },
     TEXT: { stroke: '#0f172a', width: 1 },
     TABLE: { stroke: '#0f172a', width: 2 },
-    TITLE: { stroke: '#0f172a', width: 2 }
+    TITLE: { stroke: '#0f172a', width: 2 },
+    BLOCKREF: { stroke: '#475569', width: 2, dash: '10 8' }
+  };
+
+  // PERI01 LISP içinden alınan ana sabitler.
+  const K = {
+    systemStartX: 300,
+    gutterX: 250,
+    sideBaseX: -1450, // 300 - 1750
+    rayW: 80,
+    postSize: 100,
+    glassOffsetEachSide: 66,
+    topWallInset: 6,
+    topWallH: 800,
+    topGutterH: 145,
+    topGutterInnerH: 35.5,
+    topGutterLipH: 12.7,
+    frontGutterH: 135,
+    topRayEndExtra: 3,
+    rayLengthFrontDeduct: 212,
+    frontViewExtraDrop: 500,
+    onRayHCorrection: 133,
+    onPostTopDrop: 3,
+    onPostHeightCorrection: 49,
+    altBlockCorrection: 46,
+    sideWallDepth: 600,
+    sideRayStartOffsetX: 250,
+    sideRayStartOffsetY: 12,
+    sideRayH: 131,
+    sideInnerRayOffsetY: 64.7,
+    sideInnerRayH: 10,
+    sideArkaMekOffsetX: 71.6416842,
+    sideArkaMekOffsetY: -128.50988141,
+    slopeOpeningCorrection: 71.1,
+    slopeHeightCorrection: 278,
+    catiProfilY: -400,
+    catiProfilH: 30,
+    catiProfilFirstX: 150,
+    catiProfilSecondBaseX: 250,
+    catiProfilRayRatioBase: 490,
+    catiProfilRayRatioMove: 47,
+    catiProfilExtraOffset: 120,
+    pergoTextMaxH: 220,
+    pergoTextMinH: 60,
+    pergoTextRatio: 8.5,
+    pergoTextOffset: 250
   };
 
   const SAMPLE_INPUT = {
@@ -47,9 +92,13 @@
     waterStandard: 'EVET'
   };
 
+  function firstSemi(value) {
+    return String(value ?? '').split(';')[0].trim();
+  }
+
   function numberValue(value, fallback) {
     if (value === null || value === undefined || value === '') return fallback;
-    const normalized = String(value).trim().replace(',', '.');
+    const normalized = firstSemi(value).replace(',', '.');
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
@@ -67,16 +116,22 @@
     return String(value ?? '').trim().toLocaleUpperCase('tr-TR') === 'EVET';
   }
 
-  function formatMm(value) {
-    return `${Math.round(value)} mm`;
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function formatMm(value) { return `${Math.round(value)} mm`; }
+  function formatDeg(value) { return `${Number(value).toFixed(2)}°`; }
+
+  function lspRayLen(opening, rearH, frontH) {
+    return Math.max(1, Math.floor(Math.sqrt(Math.pow(rearH - frontH - K.slopeHeightCorrection, 2) + Math.pow(opening, 2)) - 220));
   }
 
-  function formatDeg(value) {
-    return `${Number(value).toFixed(2)}°`;
+  function lspSideAngleRad(opening, rearH, frontH) {
+    return -Math.atan((rearH - frontH - K.slopeHeightCorrection) / (opening - K.slopeOpeningCorrection));
   }
 
   function normalizeInput(raw) {
     const d = { ...SAMPLE_INPUT, ...(raw || {}) };
+    // Bu revizyon tek poz odaklıdır. Sistem adedi alanı kalsın ama çizim motoru ilk poz mantığında çalışır.
     d.systemCount = Math.max(1, intValue(d.systemCount, 1));
     d.width = Math.max(500, numberValue(d.width, SAMPLE_INPUT.width));
     d.opening = Math.max(500, numberValue(d.opening, SAMPLE_INPUT.opening));
@@ -84,7 +139,7 @@
     d.frontHeight = Math.max(500, numberValue(d.frontHeight, SAMPLE_INPUT.frontHeight));
     d.rayCount = Math.max(1, intValue(d.rayCount, SAMPLE_INPUT.rayCount));
     d.postCount = Math.max(0, intValue(d.postCount, SAMPLE_INPUT.postCount));
-    d.parapetHeight = Math.max(0, numberValue(d.parapetHeight, 0));
+    d.parapetHeight = yes(d.parapet) ? Math.max(0, numberValue(d.parapetHeight, 0)) : 0;
     d.customer = textValue(d.customer, '-');
     d.project = textValue(d.project, '-');
     d.version = textValue(d.version, '01');
@@ -98,15 +153,23 @@
     d.led = textValue(d.led);
     d.dimmer = textValue(d.dimmer);
     d.extras = textValue(d.extras);
-    d.slopeDelta = d.rearHeight - d.frontHeight;
-    d.angle = Math.atan2(d.slopeDelta, d.opening) * 180 / Math.PI;
-    d.rayWidth = 80;
-    d.postSize = 120;
-    d.glassTrackOffset = yes(d.glassTrack) ? 66 : 0;
-    d.rayAreaStart = d.glassTrackOffset;
-    d.rayAreaEnd = d.width - d.glassTrackOffset;
-    d.rayAreaWidth = Math.max(d.rayWidth, d.rayAreaEnd - d.rayAreaStart);
-    d.rayPitch = d.rayCount > 1 ? (d.rayAreaWidth - d.rayWidth) / (d.rayCount - 1) : 0;
+
+    d.rayWidth = K.rayW;
+    d.postSize = K.postSize;
+    d.angleRad = lspSideAngleRad(d.opening, d.rearHeight, d.frontHeight);
+    d.angle = Math.abs(d.angleRad) * 180 / Math.PI;
+    d.rayLength = lspRayLen(d.opening, d.rearHeight, d.frontHeight);
+    d.rectStartY = -(d.opening + (d.rearHeight - d.frontHeight) + K.frontViewExtraDrop);
+    d.uzunluk = d.opening - K.rayLengthFrontDeduct;
+    d.solX = K.gutterX + K.postSize;
+    d.sagX = K.gutterX + d.width;
+    d.posY = -d.opening;
+    d.systemStartX = K.systemStartX;
+    d.systemEndX = K.systemStartX + d.width;
+    d.rayAreaStartX = d.systemStartX + (yes(d.glassTrack) ? K.glassOffsetEachSide : 0);
+    d.rayAreaEndX = d.systemEndX - (yes(d.glassTrack) ? K.glassOffsetEachSide : 0);
+    d.raySystemW = Math.max(K.rayW, d.rayAreaEndX - d.rayAreaStartX);
+    d.rayPitch = d.rayCount > 1 ? (d.raySystemW - K.rayW) / (d.rayCount - 1) : 0;
     return d;
   }
 
@@ -117,8 +180,7 @@
       entities,
       line(x1, y1, x2, y2, layer = 'OUTLINE') { return push({ type: 'line', x1, y1, x2, y2, layer }); },
       rect(x, y, w, h, layer = 'OUTLINE') {
-        const x2 = x + w;
-        const y2 = y + h;
+        const x2 = x + w, y2 = y + h;
         return push({ type: 'polyline', points: [[x, y], [x2, y], [x2, y2], [x, y2]], closed: true, layer });
       },
       poly(points, closed = false, layer = 'OUTLINE') { return push({ type: 'polyline', points, closed, layer }); },
@@ -155,218 +217,298 @@
     g.text(xDim - 120, (y1 + y2) / 2, label, 85, layer, 'center', 90);
   }
 
-  function addSlopedBeam(g, x1, y1, x2, y2, thickness, layer) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len * thickness;
-    const ny = dx / len * thickness;
-    g.poly([[x1, y1], [x2, y2], [x2 + nx, y2 + ny], [x1 + nx, y1 + ny]], true, layer);
+  function rotatePoint(px, py, bx, by, ang) {
+    const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang);
+    return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca];
   }
 
-  function drawHatch(g, x, y, w, h) {
-    const step = 420;
-    for (let t = -h; t < w + h; t += step) {
-      const x1 = x + Math.max(0, t);
-      const y1 = y + Math.max(0, -t);
-      const x2 = x + Math.min(w, t + h);
-      const y2 = y + Math.min(h, h - Math.max(0, -t));
-      if (x2 > x1) g.line(x1, y1, x2, y2, 'FABRIC');
-    }
+  function rotatedRect(g, x, y, w, h, bx, by, ang, layer) {
+    const pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(p => rotatePoint(p[0], p[1], bx, by, ang));
+    g.poly(pts, true, layer);
+    return pts;
+  }
+
+  function blockRef(g, name, x, y, w, h, layer = 'BLOCKREF') {
+    // pulumurapp.dxf blokları web motoruna aktarılana kadar sembolik yer tutucu.
+    g.rect(x - w / 2, y - h / 2, w, h, layer);
+    g.line(x - w / 2, y, x + w / 2, y, layer);
+    g.line(x, y - h / 2, x, y + h / 2, layer);
+    g.text(x, y - h / 2 - 22, name, Math.min(55, Math.max(28, w / 7)), layer, 'center');
   }
 
   function rayXs(d) {
     const xs = [];
-    for (let r = 0; r < d.rayCount; r += 1) xs.push(d.rayAreaStart + r * d.rayPitch);
+    for (let r = 0; r < d.rayCount; r += 1) xs.push(d.rayAreaStartX + r * d.rayPitch);
     return xs;
   }
 
   function postCenterXs(d) {
     if (d.postCount <= 0) return [];
-    if (d.postCount === 1) return [d.width / 2];
-    const pad = Math.max(d.postSize / 2, 80);
-    const span = Math.max(1, d.width - pad * 2);
-    return Array.from({ length: d.postCount }, (_, i) => pad + span * i / (d.postCount - 1));
-  }
-
-  function drawTopView(g, d, ox, oy) {
-    const W = d.width;
-    const A = d.opening;
-    const gutterH = 180;
-    const xs = rayXs(d);
-    const posts = postCenterXs(d);
-
-    g.text(ox, oy + A + 620, 'ÜST GÖRÜNÜŞ', 130, 'TITLE', 'left');
-    g.rect(ox, oy, W, A, 'OUTLINE');
-    g.rect(ox, oy - gutterH, W, gutterH, 'PROFILE');
-    g.text(ox + W / 2, oy - gutterH / 2, 'OLUK', 80, 'TEXT', 'center');
-    g.rect(ox - 180, oy + A + 40, W + 360, 180, 'WALL');
-    g.text(ox + W / 2, oy + A + 130, 'DUVAR / ARKA BAĞLANTI', 70, 'TEXT', 'center');
-    drawHatch(g, ox, oy, W, A);
-
-    xs.forEach((x, i) => {
-      g.rect(ox + x, oy, d.rayWidth, A, 'RAY');
-      g.rect(ox + x, oy - gutterH, d.rayWidth, gutterH, 'RAY');
-      g.text(ox + x + d.rayWidth / 2, oy + A / 2, `R${i + 1}`, 65, 'TEXT', 'center', 90);
-    });
-
-    if (yes(d.glassTrack)) {
-      g.rect(ox, oy, 66, A, 'GLASS');
-      g.rect(ox + W - 66, oy, 66, A, 'GLASS');
-      g.text(ox + W / 2, oy + A + 360, 'CAM KAYDI AKTİF: RAY ALANI SOL/SAĞ 66 mm OFSETLİ', 75, 'GLASS', 'center');
+    if (d.postCount === 1) return [K.systemStartX + d.width / 2];
+    if (d.postCount === d.rayCount && d.rayCount > 1) {
+      const pitch = (d.width - K.rayW) / (d.rayCount - 1);
+      return Array.from({ length: d.postCount }, (_, i) => K.systemStartX + pitch * i + K.rayW / 2);
     }
+    const step = (d.width - K.postSize) / (d.postCount - 1);
+    return Array.from({ length: d.postCount }, (_, i) => d.solX + step * i);
+  }
 
-    posts.forEach((cx, i) => {
-      g.rect(ox + cx - d.postSize / 2, oy - gutterH - d.postSize - 50, d.postSize, d.postSize, 'POST');
-      g.text(ox + cx, oy - gutterH - d.postSize / 2 - 50, `D${i + 1}`, 60, 'TEXT', 'center');
+  function drawTopWall(g, d) {
+    g.rect(K.systemStartX - K.topWallInset, 0, d.width + K.topWallInset * 2, K.topWallH, 'WALL');
+    g.text(K.systemStartX + d.width / 2, K.topWallH / 2, 'DUVAR', 85, 'TEXT', 'center');
+  }
+
+  function drawTopRays(g, d) {
+    const rayEndY = -(d.opening + K.topRayEndExtra);
+    const rayStartY = rayEndY + d.uzunluk;
+    rayXs(d).forEach((x) => {
+      g.rect(x, rayStartY, K.rayW, -d.uzunluk, 'RAY');
+      g.rect(x + 33.5, rayStartY, 13, -d.uzunluk, 'RAY');
+      blockRef(g, 'Ray Arka Mek.', x + 40, rayStartY, 95, 72);
+      blockRef(g, 'Ray Kafası', x + 40, rayEndY, 100, 80);
     });
+  }
 
-    if (!yes(d.waterStandard)) {
-      const pipeX = ox + W - 220;
-      g.line(pipeX, oy - gutterH, pipeX, oy - gutterH - 480, 'WATER');
-      g.line(pipeX, oy - gutterH - 480, pipeX + 260, oy - gutterH - 480, 'WATER');
-      g.text(pipeX + 300, oy - gutterH - 480, 'ÖZEL SU ÇIKIŞI', 65, 'WATER', 'left');
+  function drawTopGutter(g, d) {
+    const y = -d.opening;
+    g.rect(K.gutterX, y, d.width + 100, K.topGutterH, 'PROFILE');
+    g.rect(K.gutterX, y, d.width + 100, K.topGutterInnerH, 'PROFILE');
+    g.rect(K.gutterX, y + K.topGutterH, d.width + 100, -K.topGutterLipH, 'PROFILE');
+    blockRef(g, 'PergoRise Oluk', 500, y, 390, 120);
+  }
+
+  function drawTopPosts(g, d) {
+    postCenterXs(d).forEach((x, i) => {
+      g.rect(x - K.postSize / 2, d.posY, K.postSize, K.postSize, 'POST');
+      g.rect(x - K.postSize / 2 + 2, d.posY + 2, K.postSize - 4, K.postSize - 4, 'POST');
+      blockRef(g, 'Dikme Oluk Bağ.', x, d.posY, 135, 95);
+      g.text(x, d.posY + 50, `D${i + 1}`, 45, 'TEXT', 'center');
+    });
+  }
+
+  function drawTopGlassTrack(g, d) {
+    if (!yes(d.glassTrack)) return;
+    const camL = Math.max(1, d.opening - 100);
+    const baseY = d.posY + 100;
+    const leftX = d.solX - 50;
+    const rightX = d.sagX - 50;
+    g.rect(leftX, baseY, 100, camL, 'GLASS');
+    g.rect(rightX, baseY, 100, camL, 'GLASS');
+    if (camL > 5000) {
+      [leftX, rightX].forEach(baseX => {
+        const postY = baseY + camL / 2 - 50;
+        g.rect(baseX, postY, 100, 100, 'GLASS');
+        g.rect(baseX + 2, postY + 2, 96, 96, 'GLASS');
+      });
     }
-
-    addDimH(g, ox, ox + W, oy - gutterH - 20, oy - gutterH - 420, `GENİŞLİK ${formatMm(W)}`);
-    addDimV(g, oy, oy + A, ox + W + 30, ox + W + 390, `AÇILIM ${formatMm(A)}`);
   }
 
-  function drawFrontView(g, d, ox, oy) {
-    const W = d.width;
-    const FH = d.frontHeight;
-    const gutterH = 180;
+  function drawTopRoofProfiles(g, d) {
     const xs = rayXs(d);
-    const posts = postCenterXs(d);
-
-    g.text(ox, oy + FH + 620, 'ÖN / KARŞI GÖRÜNÜŞ', 130, 'TITLE', 'left');
-    g.line(ox - 180, oy, ox + W + 180, oy, 'WALL');
-    posts.forEach((cx, i) => {
-      g.rect(ox + cx - d.postSize / 2, oy, d.postSize, FH, 'POST');
-      g.text(ox + cx, oy + FH / 2, `D${i + 1}`, 60, 'TEXT', 'center', 90);
-    });
-    g.rect(ox, oy + FH, W, gutterH, 'PROFILE');
-    g.text(ox + W / 2, oy + FH + gutterH / 2, 'OLUK ÖN GÖRÜNÜŞ', 70, 'TEXT', 'center');
-
-    xs.forEach((x, i) => {
-      g.rect(ox + x, oy + FH + gutterH, d.rayWidth, 120, 'RAY');
-      g.text(ox + x + d.rayWidth / 2, oy + FH + gutterH + 170, `R${i + 1}`, 55, 'TEXT', 'center');
-    });
-
-    if (yes(d.led)) g.line(ox + 80, oy + FH + 40, ox + W - 80, oy + FH + 40, 'GLASS');
-    addDimH(g, ox, ox + W, oy - 120, oy - 380, `GENİŞLİK ${formatMm(W)}`);
-    addDimV(g, oy, oy + FH, ox - 60, ox - 360, `ÖN YÜKSEKLİK ${formatMm(FH)}`);
+    const profileShift = (d.rayLength / K.catiProfilRayRatioBase) * K.catiProfilRayRatioMove + K.catiProfilExtraOffset;
+    for (let i = 0; i < xs.length - 1; i += 1) {
+      const x = xs[i] + K.rayW;
+      const len = xs[i + 1] - x;
+      if (len > 1) {
+        g.rect(x, K.catiProfilY, len, K.catiProfilH, 'FABRIC');
+        g.rect(x, K.catiProfilY - profileShift, len, K.catiProfilH, 'FABRIC');
+      }
+    }
   }
 
-  function drawSideView(g, d, ox, oy) {
-    const A = d.opening;
-    const FH = d.frontHeight;
-    const RH = d.rearHeight;
-    const frontX = ox;
-    const rearX = ox + A;
-    const frontY = oy + FH;
-    const rearY = oy + RH;
-    const roofT = 90;
+  function drawTopPergoText(g, d) {
+    const x1 = d.rayAreaStartX - 6;
+    const x2 = d.rayAreaStartX + d.raySystemW + 6;
+    const innerX1 = x1 + K.pergoTextOffset;
+    const innerX2 = x2 - K.pergoTextOffset;
+    const textX = innerX2 > innerX1 ? (innerX1 + innerX2) / 2 : (x1 + x2) / 2;
+    const h = clamp(((x2 - x1) - 2 * K.pergoTextOffset) / K.pergoTextRatio, K.pergoTextMinH, K.pergoTextMaxH);
+    g.text(textX, -d.opening / 2, 'PERGO RISE', h, 'TITLE', 'center');
+  }
 
-    g.text(ox, oy + Math.max(FH, RH) + 820, 'YAN GÖRÜNÜŞ', 130, 'TITLE', 'left');
-    g.line(ox - 160, oy, rearX + 580, oy, 'WALL');
-    g.rect(frontX - d.postSize / 2, oy, d.postSize, FH, 'POST');
-    addSlopedBeam(g, frontX, frontY, rearX, rearY, roofT, 'RAY');
-    g.rect(frontX - 130, frontY - 140, 260, 180, 'PROFILE');
-    g.rect(rearX + 60, oy, 240, RH, 'WALL');
-    g.text(rearX + 180, oy + RH / 2, 'DUVAR', 60, 'TEXT', 'center', 90);
+  function drawTopView(g, d) {
+    drawTopWall(g, d);
+    drawTopRays(g, d);
+    drawTopGutter(g, d);
+    drawTopPosts(g, d);
+    drawTopGlassTrack(g, d);
+    drawTopRoofProfiles(g, d);
+    drawTopPergoText(g, d);
+    addDimH(g, K.systemStartX, K.systemStartX + d.width, 0, 800, `GENİŞLİK ${formatMm(d.width)}`);
+    addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`);
+    g.text(K.systemStartX, 1050, 'ÜST GÖRÜNÜŞ - PERI01 KOORDİNAT MANTIĞI', 110, 'TITLE', 'left');
+  }
+
+  function drawFrontView(g, d) {
+    const xs = rayXs(d);
+    const postXs = postCenterXs(d);
+    const rectStartY = d.rectStartY;
+    const rayH = d.rearHeight - d.frontHeight - K.onRayHCorrection;
+    const onRayY = rectStartY + K.onRayHCorrection;
+    const ustY = onRayY + rayH;
+    const onDikmeH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
+    const altBlokY = rectStartY - d.frontHeight + K.altBlockCorrection + d.parapetHeight;
+
+    g.rect(K.gutterX, rectStartY, d.width + 100, K.frontGutterH, 'PROFILE');
+    blockRef(g, 'Oluk Ön', K.gutterX + (d.width + 100) / 2, rectStartY + K.frontGutterH / 2, d.width + 100, 80);
 
     if (yes(d.parapet) && d.parapetHeight > 0) {
-      g.rect(rearX + 60, oy + RH, 240, d.parapetHeight, 'WALL');
-      g.text(rearX + 180, oy + RH + d.parapetHeight / 2, `PARAPET ${formatMm(d.parapetHeight)}`, 55, 'TEXT', 'center', 90);
+      const pBaseY = rectStartY - d.frontHeight;
+      const pTopY = pBaseY + d.parapetHeight;
+      g.rect(K.systemStartX, pTopY, d.width, -d.parapetHeight, 'WALL');
+    }
+
+    xs.forEach((x) => {
+      if (rayH > 0) g.rect(x, ustY, K.rayW, -rayH, 'RAY');
+      blockRef(g, 'Ray Kafası Ön', x + 40, onRayY, 110, 70);
+    });
+
+    postXs.forEach((x, i) => {
+      blockRef(g, 'Dikme Oluk Bağ. Ön', x, rectStartY, 135, 85);
+      g.rect(x - 50, rectStartY - K.onPostTopDrop, K.postSize, -onDikmeH, 'POST');
+      blockRef(g, 'Dikme Alt Bağ.', x, altBlokY, 125, 70);
+      g.text(x, rectStartY - onDikmeH / 2, `D${i + 1}`, 48, 'TEXT', 'center', 90);
+    });
+
+    addDimH(g, K.systemStartX, K.systemStartX + d.width, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.width)}`);
+    addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
+    g.text(K.systemStartX, rectStartY + 420, 'ÖN / KARŞI GÖRÜNÜŞ', 110, 'TITLE', 'left');
+  }
+
+  function drawSideView(g, d) {
+    const rectStartY = -(d.opening + (d.rearHeight - d.frontHeight) + K.frontViewExtraDrop);
+    const dikH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
+    const yanUstY = rectStartY - K.onPostTopDrop;
+    const yanAltY = yanUstY - dikH;
+    const yanX = K.sideBaseX;
+    const duvarX = K.systemStartX - (1750 + d.opening);
+    const duvarY = yanAltY - K.altBlockCorrection - d.parapetHeight;
+    const bagX = duvarX;
+    const bagY = duvarY + d.rearHeight;
+    const arkaMekX = bagX + K.sideArkaMekOffsetX;
+    const arkaMekY = bagY + K.sideArkaMekOffsetY;
+    const startRayX = bagX + K.sideRayStartOffsetX;
+    const startRayY = bagY - K.sideRayStartOffsetY;
+    const rayLen = d.rayLength;
+    const aci = lspSideAngleRad(d.opening, d.rearHeight, d.frontHeight);
+
+    if (d.postCount > 0) {
+      g.rect(yanX, yanUstY, -K.postSize, -dikH, 'POST');
+      blockRef(g, 'Dikme Oluk Bağ. Yan', yanX, yanUstY, 130, 80);
+      blockRef(g, 'Dikme Alt Bağ. Yan', yanX - 50, yanAltY, 120, 70);
+    }
+    blockRef(g, 'Oluk Yan Birleşik', yanX, yanUstY, 220, 135);
+
+    if (yes(d.glassTrack)) {
+      const camBaseX = yanX - 100;
+      const camBaseY = yanUstY - 3;
+      const camW = Math.max(1, d.opening - 100);
+      g.rect(camBaseX, camBaseY, -camW, -100, 'GLASS');
+      if (camW > 5000) {
+        const destekX = camBaseX - camW / 2 - 50;
+        const destekY = camBaseY - 100;
+        const destekH = Math.max(1, d.frontHeight - 103 - d.parapetHeight);
+        g.rect(destekX, destekY, 100, -destekH, 'GLASS');
+      }
+    }
+
+    if (yes(d.parapet) && d.parapetHeight > 0) {
+      const yanParapetX = duvarX + d.opening;
+      g.rect(yanParapetX, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'WALL');
+    }
+
+    g.rect(duvarX, duvarY, -K.sideWallDepth, d.rearHeight, 'WALL');
+    blockRef(g, 'Ray Duvar Bağ.', bagX, bagY, 120, 95);
+    blockRef(g, 'Ray Arka Mek. Yan', arkaMekX, arkaMekY, 135, 90);
+    rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'RAY');
+    rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'RAY');
+    const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci);
+    blockRef(g, 'Ray Kafası Yan', kafa[0], kafa[1], 130, 90);
+
+    // Çatı kayıt profilleri, yan görünüşte ray grubunun parçası olarak aynı açıyla temsil edilir.
+    rotatedRect(g, startRayX + K.catiProfilFirstX, startRayY - K.sideRayH, 170, -35, arkaMekX, arkaMekY, aci, 'FABRIC');
+    rotatedRect(g, startRayX + ((rayLen / K.catiProfilRayRatioBase) * K.catiProfilRayRatioMove + K.catiProfilSecondBaseX), startRayY - K.sideRayH, 170, -35, arkaMekX, arkaMekY, aci, 'FABRIC');
+
+    const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci);
+    g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
+
+    if (!yes(d.waterStandard)) {
+      const basX = yanX - 35.5;
+      const basY = yanUstY + 13.9;
+      g.rect(basX, basY, 300, 70, 'WATER');
+      g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left');
     }
 
     if (yes(d.triangleJoinery)) {
-      const baseY = oy + Math.min(FH, RH) - 720;
-      g.poly([[frontX, baseY], [rearX, baseY], [rearX, rearY], [frontX, frontY]], true, 'GLASS');
-      const count = Math.max(1, Math.ceil(A / 2000) - 1);
-      for (let i = 1; i <= count; i += 1) {
-        const x = frontX + (A * i / (count + 1));
-        const t = (x - frontX) / A;
-        const yTop = frontY + (rearY - frontY) * t;
+      const slope = Math.abs((d.rearHeight - d.frontHeight - K.slopeHeightCorrection) / (d.opening - K.slopeOpeningCorrection));
+      const AB = Math.max(1, d.opening - 150);
+      const BC = 165 + 150 * slope;
+      const rise = AB * slope;
+      const AD = BC + rise;
+      const baseX = duvarX + 75;
+      const baseY = bagY + 600;
+      g.poly([[baseX, baseY], [baseX + AB, baseY], [baseX + AB, baseY + BC], [baseX, baseY + AD]], true, 'GLASS');
+      const ara = Math.max(0, Math.floor((AB - 0.000001) / 2000));
+      for (let i = 1; i <= ara; i += 1) {
+        const x = baseX + (AB * i / (ara + 1));
+        const t = (x - baseX) / AB;
+        const yTop = baseY + AD - (AD - BC) * t;
         g.line(x, baseY, x, yTop, 'GLASS');
       }
-      g.text(frontX + A / 2, baseY - 140, 'ÜÇGEN DOĞRAMA', 70, 'GLASS', 'center');
+      g.text(baseX + AB / 2, baseY + AD + 150, 'ÜÇGEN DOĞRAMA', 80, 'GLASS', 'center');
     }
 
-    addDimH(g, frontX, rearX, oy - 120, oy - 430, `AÇILIM ${formatMm(A)}`);
-    addDimV(g, oy, oy + FH, frontX - 80, frontX - 380, `ÖN ${formatMm(FH)}`);
-    addDimV(g, oy, oy + RH, rearX + 60, rearX + 520, `ARKA ${formatMm(RH)}`);
-    g.text(frontX + A / 2, Math.max(frontY, rearY) + 250, `SİSTEM AÇISI ${formatDeg(d.angle)}`, 85, 'TEXT', 'center');
+    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(d.opening)}`);
+    addDimV(g, duvarY, duvarY + d.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(d.rearHeight)}`);
+    addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`);
+    g.text(duvarX, bagY + 850, 'YAN GÖRÜNÜŞ', 110, 'TITLE', 'left');
   }
 
-  function drawTable(g, d, ox, oy) {
-    const rowH = 210;
-    const col1 = 620;
-    const col2 = 1180;
+  function drawTable(g, d) {
+    const ox = K.systemStartX + d.width + 1200;
+    const oy = K.topWallH;
+    const rowH = 180;
+    const col1 = 1200;
+    const col2 = 1800;
     const rows = [
-      ['Müşteri', d.customer],
-      ['Proje', d.project],
-      ['Versiyon', d.version],
-      ['Çizen', d.drawnBy],
-      ['Tarih', d.date],
-      ['Genişlik', formatMm(d.width)],
-      ['Açılım', formatMm(d.opening)],
-      ['Arka Yükseklik', formatMm(d.rearHeight)],
-      ['Ön Yükseklik', formatMm(d.frontHeight)],
-      ['Ray Sayısı', String(d.rayCount)],
-      ['Dikme Sayısı', String(d.postCount)],
-      ['Parapet', textValue(d.parapet)],
-      ['Cam Kaydı', textValue(d.glassTrack)],
-      ['Üçgen Doğrama', textValue(d.triangleJoinery)],
-      ['Su Çıkışı Standart', textValue(d.waterStandard)],
-      ['Structure Color', d.structureColor],
-      ['Fabric', d.fabric],
-      ['Motor / Remote', `${d.motor} / ${d.remote}`],
-      ['Extras', d.extras]
+      ['Müşteri', d.customer], ['Proje', d.project], ['Versiyon', d.version], ['Çizen', d.drawnBy], ['Tarih', d.date],
+      ['Genişlik', formatMm(d.width)], ['Açılım', formatMm(d.opening)], ['Arka Yükseklik', formatMm(d.rearHeight)], ['Ön Yükseklik', formatMm(d.frontHeight)],
+      ['Ray Sayısı', String(d.rayCount)], ['Dikme Sayısı', String(d.postCount)], ['Parapet', textValue(d.parapet)], ['Parapet Yüksekliği', formatMm(d.parapetHeight)],
+      ['Cam Kaydı', textValue(d.glassTrack)], ['Üçgen Doğrama', textValue(d.triangleJoinery)], ['Su Çıkışı Standart', textValue(d.waterStandard)],
+      ['Structure Color', d.structureColor], ['Fabric', d.fabric], ['Fabric Profiles', d.fabricProfiles], ['Motor', d.motor], ['Remote', d.remote], ['LED', d.led], ['Dimmer', d.dimmer], ['Extras / Notes', d.extras]
     ];
-
-    g.text(ox, oy + rowH + 120, 'PROJE BİLGİ TABLOSU', 120, 'TITLE', 'left');
+    g.text(ox, oy + 260, 'PROJE / SİSTEM BİLGİLERİ', 110, 'TITLE', 'left');
     rows.forEach((row, i) => {
       const y = oy - i * rowH;
       g.rect(ox, y, col1, rowH, 'TABLE');
       g.rect(ox + col1, y, col2, rowH, 'TABLE');
-      g.text(ox + 40, y + rowH / 2, row[0], 70, 'TEXT', 'left');
-      g.text(ox + col1 + 40, y + rowH / 2, String(row[1]).slice(0, 46), 70, 'TEXT', 'left');
+      g.text(ox + 45, y + rowH / 2, row[0], 70, 'TEXT', 'left');
+      g.text(ox + col1 + 45, y + rowH / 2, String(row[1]).slice(0, 54), 70, 'TEXT', 'left');
     });
   }
 
-  function drawTitleBlock(g, d, ox, oy) {
-    g.rect(ox, oy, 5200, 420, 'TITLE');
-    g.rect(ox, oy, 930, 420, 'PROFILE');
-    g.text(ox + 465, oy + 210, 'PLMR', 180, 'TITLE', 'center');
-    g.text(ox + 1100, oy + 250, 'Pülümür Automation Studio | Parametrik Çizim ve Proje Otomasyonu', 85, 'TITLE', 'left');
-    g.text(ox + 1100, oy + 120, `Ürün: ${d.product} | Modül: ${d.moduleName} | Motor: ${d.engine}`, 70, 'TEXT', 'left');
+  function drawTitleBlock(g, d) {
+    const minY = d.rectStartY - d.frontHeight - 1100;
+    g.rect(K.systemStartX, minY, 5200, 420, 'TITLE');
+    g.rect(K.systemStartX, minY, 930, 420, 'PROFILE');
+    g.text(K.systemStartX + 465, minY + 210, 'PLMR', 180, 'TITLE', 'center');
+    g.text(K.systemStartX + 1100, minY + 250, 'Pülümür Automation Studio | Parametrik Çizim ve Proje Otomasyonu', 85, 'TITLE', 'left');
+    g.text(K.systemStartX + 1100, minY + 120, `Ürün: ${d.product} | Modül: ${d.moduleName} | Motor: ${d.engine}`, 70, 'TEXT', 'left');
   }
 
   function buildDrawing(raw) {
     const d = normalizeInput(raw);
     const g = makeEntitySink();
-    const topX = 600;
-    const topY = 5200;
-    const frontX = 600;
-    const frontY = 1000;
-    const sideX = topX + d.width + 1400;
-    const sideY = 1000;
-    const tableX = sideX;
-    const tableY = topY + d.opening + 700;
-
-    drawTopView(g, d, topX, topY);
-    drawFrontView(g, d, frontX, frontY);
-    drawSideView(g, d, sideX, sideY);
-    drawTable(g, d, tableX, tableY);
-    drawTitleBlock(g, d, 600, 220);
-
+    drawTopView(g, d);
+    drawFrontView(g, d);
+    drawSideView(g, d);
+    drawTable(g, d);
+    drawTitleBlock(g, d);
     return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE };
   }
 
   function entityBounds(e) {
-    if (e.type === 'line') return [e.x1, e.y1, e.x2, e.y2];
+    if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)];
     if (e.type === 'text') return [e.x, e.y, e.x + e.value.length * e.height * 0.55, e.y + e.height];
     if (e.type === 'polyline') {
       const xs = e.points.map(p => p[0]);
@@ -422,7 +564,7 @@
     return parts.join('\n');
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, lspRayLen, lspSideAngleRad };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

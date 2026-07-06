@@ -108,22 +108,31 @@
     const values = [angle, opening, rear, front];
     const filled = values.filter(v => v !== null).length;
     if (filled !== 3) {
-      $('calcResult').textContent = 'Tam olarak 3 değer gir; boş bırakılan 4. değer hesaplanır.';
+      $('calcResult').textContent = 'Tam olarak 3 değer gir; boş bırakılan 4. değer PERI01 formülüyle hesaplanır.';
       lastCalc = null;
       return null;
     }
 
+    // Excel makrosundaki Pülümür Hesaplayıcı mantığı:
+    // Sistem açısı = ATAN((Arka - Ön - 278) / (Açılım - 71.1))
+    // Bu değer, PERI01 yan görünüş ray açısı hesabıyla aynı sabitleri kullanır.
+    const OPENING_CORRECTION = 71.1;
+    const HEIGHT_CORRECTION = 278;
+    const toRad = deg => deg * Math.PI / 180;
+    const toDeg = rad => rad * 180 / Math.PI;
+
     let result = { angle, opening, rear, front };
     if (angle === null) {
-      result.angle = Math.atan2(rear - front, opening) * 180 / Math.PI;
+      if (Math.abs(opening - OPENING_CORRECTION) < 1e-9) throw new Error('Açılım 71.1 mm olamaz. Formülde bölme hatası oluşur.');
+      result.angle = toDeg(Math.atan((rear - front - HEIGHT_CORRECTION) / (opening - OPENING_CORRECTION)));
     } else if (opening === null) {
-      const t = Math.tan(angle * Math.PI / 180);
-      if (Math.abs(t) < 1e-9) throw new Error('Açı 0° ise açılım hesaplanamaz.');
-      result.opening = (rear - front) / t;
+      const t = Math.tan(toRad(angle));
+      if (Math.abs(t) < 1e-9) throw new Error('Sistem açısı 0° ise açılım hesaplanamaz.');
+      result.opening = ((rear - front - HEIGHT_CORRECTION) / t) + OPENING_CORRECTION;
     } else if (rear === null) {
-      result.rear = front + opening * Math.tan(angle * Math.PI / 180);
+      result.rear = front + HEIGHT_CORRECTION + (opening - OPENING_CORRECTION) * Math.tan(toRad(angle));
     } else if (front === null) {
-      result.front = rear - opening * Math.tan(angle * Math.PI / 180);
+      result.front = rear - HEIGHT_CORRECTION - (opening - OPENING_CORRECTION) * Math.tan(toRad(angle));
     }
 
     if (![result.angle, result.opening, result.rear, result.front].every(Number.isFinite)) {
