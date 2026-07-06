@@ -63,7 +63,7 @@
     pergoTextOffset: 250
   };
 
-  const BUILD_LABEL = 'WEB DXF V6.2 - CLEAN R12 PREVIEW FIX - 06.07.2026';
+  const BUILD_LABEL = 'WEB DXF V6.4 - CLEAN R12 BLOCK DEFINITIONS - 06.07.2026';
 
   const SAMPLE_INPUT = {
     product: 'Pergo Rise',
@@ -241,6 +241,32 @@
   function rotatePoint(px, py, bx, by, ang) {
     const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang);
     return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca];
+  }
+
+
+  function getBlocks() {
+    return (root.PulumurFilteredBlocks && root.PulumurFilteredBlocks.blocks) ? root.PulumurFilteredBlocks.blocks : {};
+  }
+
+  function transformLocalPoint(px, py, ins) {
+    const sx = Number(ins.scaleX) || 1;
+    const sy = Number(ins.scaleY) || 1;
+    const a = (Number(ins.rotation) || 0) * Math.PI / 180;
+    const x = px * sx;
+    const y = py * sy;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    return [ins.x + x * ca - y * sa, ins.y + x * sa + y * ca];
+  }
+
+  function transformBlockBounds(block, ins) {
+    const b = block.bounds || { minX: -50, minY: -50, maxX: 50, maxY: 50 };
+    const pts = [
+      [b.minX, b.minY], [b.maxX, b.minY], [b.maxX, b.maxY], [b.minX, b.maxY]
+    ].map(p => transformLocalPoint(p[0], p[1], ins));
+    const xs = pts.map(p => p[0]);
+    const ys = pts.map(p => p[1]);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
   }
 
   function rotatedRect(g, x, y, w, h, bx, by, ang, layer) {
@@ -533,7 +559,7 @@
     drawSideView(g, d);
     drawTable(g, d);
     drawTitleBlock(g, d);
-    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE };
+    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: getBlocks() };
   }
 
   function entityBounds(e) {
@@ -544,9 +570,10 @@
       const ys = e.points.map(p => p[1]);
       return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     }
+    if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r];
     if (e.type === 'insert') {
-      // V6.2: previewW/previewH zaten hedef mm ölçüsüdür.
-      // Eski DXF blok scale değerlerini burada tekrar çarpmak önizlemeyi aşırı küçültüyordu.
+      const block = getBlocks()[e.name];
+      if (block) return transformBlockBounds(block, e);
       const w = Math.abs(e.previewW || 120);
       const h = Math.abs(e.previewH || 80);
       return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2];
@@ -594,20 +621,44 @@
         const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start');
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
         parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
+      } else if (e.type === 'circle') {
+        parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       } else if (e.type === 'insert') {
-        // V6.2: önizlemede eski blok scale değerlerini yok sayıyoruz.
-        const w = Math.abs(e.previewW || 120);
-        const h = Math.abs(e.previewH || 80);
-        const cx = sx(e.x), cy = sy(e.y);
-        const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : '';
-        parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><line x1="${cx - w / 2}" y1="${cy}" x2="${cx + w / 2}" y2="${cy}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><line x1="${cx}" y1="${cy - h / 2}" x2="${cx}" y2="${cy + h / 2}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`);
+        const block = getBlocks()[e.name];
+        if (block) {
+          const group = [];
+          (block.entities || []).forEach(be => {
+            const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF;
+            const bstroke = bst.stroke;
+            const bsw = Math.max(1, (bst.width || 2));
+            if (be.type === 'line') {
+              const p1 = transformLocalPoint(be.x1, be.y1, e);
+              const p2 = transformLocalPoint(be.x2, be.y2, e);
+              group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            } else if (be.type === 'polyline') {
+              const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+              group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            } else if (be.type === 'circle') {
+              const p = transformLocalPoint(be.x, be.y, e);
+              const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2));
+              group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            }
+          });
+          parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`);
+        } else {
+          const w = Math.abs(e.previewW || 120);
+          const h = Math.abs(e.previewH || 80);
+          const cx = sx(e.x), cy = sy(e.y);
+          const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : '';
+          parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><line x1="${cx - w / 2}" y1="${cy}" x2="${cx + w / 2}" y2="${cy}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><line x1="${cx}" y1="${cy - h / 2}" x2="${cx}" y2="${cy + h / 2}" stroke="${stroke}" stroke-width="${Math.max(1, sw / 2)}"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`);
+        }
       }
     }
     parts.push('</svg>');
     return parts.join('\n');
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, lspRayLen, lspSideAngleRad };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, lspRayLen, lspSideAngleRad, getBlocks };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

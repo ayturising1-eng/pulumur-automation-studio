@@ -1,10 +1,27 @@
-# Pülümür Automation Studio - V6.2 Clean Preview Fix
+# Pülümür Automation Studio — V6.4 Block Definitions
 
-Bu paket, V6.1'deki önizleme küçülme/hatalı görünüm sorununu düzeltir.
+Bu sürüm tek poz Pergo Rise web DXF prototipidir.
 
-Düzeltme:
-- Eski DWG/DXF blok `scaleX/scaleY` değerleri SVG önizleme ve temiz R12 DXF placeholder çizimlerinde tekrar çarpılmıyor.
-- `previewW/previewH` doğrudan hedef mm ölçüsü olarak kullanılıyor.
-- DXF yine temiz AC1009 / R12 mantığında, gerçek BLOCK/INSERT yok.
+## V6.4 değişiklikleri
 
-GitHub'a zip klasörünü değil, zip içindeki dosyaları repo ana dizinine yükleyin.
+- V6.2 Clean R12 motoru korunmuştur.
+- Ayrı DXF dosyalarından süzgeçten geçirilen dikme blokları `blocks/filteredBlocks.js` içine alınmıştır.
+- Bloklar DXF içinde gerçek `BLOCK` tanımı olarak yazılır.
+- Çizimde ilgili noktalara `INSERT` ile çağrılır.
+- Blok taban noktası: kaynak çizimin bounding-box merkezi, yani merkez bazlı yerleşim.
+- Kaynak DXF dosyaları değiştirilmemiştir.
+
+## Dahil edilen bloklar
+
+- PergoRise Dikme Alt Bağlantı Karşı Görünüş
+- PergoRise Dikme Oluk Bağlantı Üst Görünüş
+- PergoRise Dikme Oluk Bağlantı Yan Görünüş
+- PergoRise Dikme Üst Görünüş
+- PergoRise Dikme Alt Bağlantı Yan Görünüş
+- PergoRise Dikme Oluk Bağlantı Karşı Görünüş
+
+## Test dosyaları
+
+- `samples/pergo-rise-v6_4-block-definitions-test.dxf`
+- `blocks/FILTERED_BLOCKS_REPORT.md`
+

@@ -1,3 +1,1 @@
-Pulumur Automation Studio - V6.2 Clean R12 Preview Fix
-Build: 2026-07-06
-Index title: Web DXF V6.2 Clean R12
+V6.4 - Clean R12 + filtered center-based BLOCK definitions

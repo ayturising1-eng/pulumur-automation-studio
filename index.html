@@ -12,7 +12,7 @@
       <div class="brand-mark">PLMR</div>
       <div>
         <h1>Pülümür Automation Studio</h1>
-        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V6.2 Clean R12</p>
+        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V6.4 Blok Tanımlı R12</p>
       </div>
     </div>
     <div class="top-actions">
@@ -85,7 +85,7 @@
           <label><span>Üçgen Doğrama</span><select id="triangleJoinery"><option>HAYIR</option><option>EVET</option></select></label>
           <label><span>Su Çıkışı Standart mı?</span><select id="waterStandard"><option>EVET</option><option>HAYIR</option></select></label>
           <div class="info-box">
-            Bu <strong>V6.2 Clean R12 sürümü</strong> tek poz çizimi içindir. Blok gömme kapalıdır; temiz DXF çıktısı ve doğru geometri üzerine ilerliyoruz.
+            Bu <strong>V6.4 Blok Tanımlı R12 sürümü</strong> tek poz çizimi içindir. Filtrelenen bloklar merkez bazlı BLOCK/INSERT olarak DXF içine yazılır.
           </div>
         </fieldset>
       </div>
@@ -135,8 +135,9 @@
     </form>
   </dialog>
 
-  <script src="peri01Geometry.js?v=6.2"></script>
-  <script src="dxfEngine.js?v=6.2"></script>
-  <script src="app.js?v=6.2"></script>
+  <script src="blocks/filteredBlocks.js?v=6.4"></script>
+  <script src="peri01Geometry.js?v=6.4"></script>
+  <script src="dxfEngine.js?v=6.4"></script>
+  <script src="app.js?v=6.4"></script>
 </body>
 </html>
