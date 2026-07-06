@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Geometry = require('../peri01Geometry.js');
+require('../blocks/pulumurBlocks.js');
 const DXF = require('../dxfEngine.js');
 
 const samplePath = path.join(__dirname, '..', 'samples', 'sample-input.json');

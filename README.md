@@ -79,3 +79,8 @@ http://localhost:8080
 3. Çoklu poz veri modeli eklenir.
 4. `pulumurapp.dwg` blokları DXF blok tanımlarına çevrilir.
 5. PDF önizleme ve teklif formu içe aktarma ayrı modül olarak eklenir.
+
+
+## V3 Blok Eşleştirme
+
+Bu sürümde `pulumurapp.dxf` içindeki PERI01 blokları web DXF çıktısına `BLOCK / INSERT` mantığıyla eklenmiştir. Tek poz referansı olarak `DENEME-DENEME.dxf` kullanılmıştır. Trapez tarama, RISING LOGO ve PLMR logo şimdilik bilinçli olarak kullanılmamıştır.
