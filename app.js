@@ -78,7 +78,7 @@
     const drawing = updatePreview();
     if (!drawing) return;
     const dxf = window.PulumurDXF.toDxf(drawing);
-    const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v4-bloklu-v${drawing.input.version}`);
+    const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v6-clean-r12-v${drawing.input.version}`);
     downloadText(`${nameRoot}.dxf`, dxf);
     statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
   }
