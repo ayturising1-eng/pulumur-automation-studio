@@ -89,3 +89,8 @@ Bu sürümde `pulumurapp.dxf` içindeki PERI01 blokları web DXF çıktısına `
 ## V4 notu
 
 Bu paket, önceki örnekle karışmaması için çıktılara `WEB DXF V4 - BLOKLU TEST - 06.07.2026` yazısı ekler. Örnek dosya adı: `samples/pergo-rise-v4-block-test.dxf`.
+
+
+## V5 DXF Fix
+
+Generated LINE, LWPOLYLINE, TEXT and INSERT entities now include AC1024 subclass markers to avoid broken DXF loading. Sample output name: `samples/pergo-rise-v5-dxf-fix-test.dxf`.

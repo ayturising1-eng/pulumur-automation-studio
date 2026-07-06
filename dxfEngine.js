@@ -92,8 +92,10 @@
   function lineEntity(e) {
     return [
       pair(0, 'LINE'),
+      pair(100, 'AcDbEntity'),
       pair(8, e.layer || 'OUTLINE'),
       pair(62, layerColor(e.layer)),
+      pair(100, 'AcDbLine'),
       pair(10, fixed(e.x1)), pair(20, fixed(e.y1)), pair(30, 0),
       pair(11, fixed(e.x2)), pair(21, fixed(e.y2)), pair(31, 0)
     ];
@@ -102,8 +104,10 @@
   function polyEntity(e) {
     const out = [];
     out.push(pair(0, 'LWPOLYLINE'));
+    out.push(pair(100, 'AcDbEntity'));
     out.push(pair(8, e.layer || 'OUTLINE'));
     out.push(pair(62, layerColor(e.layer)));
+    out.push(pair(100, 'AcDbPolyline'));
     out.push(pair(90, e.points.length));
     out.push(pair(70, e.closed ? 1 : 0));
     e.points.forEach(p => {
@@ -117,8 +121,10 @@
     const alignCode = e.align === 'center' ? 1 : (e.align === 'right' ? 2 : 0);
     const out = [
       pair(0, 'TEXT'),
+      pair(100, 'AcDbEntity'),
       pair(8, e.layer || 'TEXT'),
       pair(62, layerColor(e.layer)),
+      pair(100, 'AcDbText'),
       pair(10, fixed(e.x)),
       pair(20, fixed(e.y)),
       pair(30, 0),
@@ -140,8 +146,10 @@
   function insertEntity(e) {
     const out = [
       pair(0, 'INSERT'),
+      pair(100, 'AcDbEntity'),
       pair(8, e.layer || '0'),
       pair(62, layerColor(e.layer)),
+      pair(100, 'AcDbBlockReference'),
       pair(2, e.name),
       pair(10, fixed(e.x)),
       pair(20, fixed(e.y)),
@@ -154,9 +162,25 @@
     return out;
   }
 
+  function stripUnstablePairsFromBlockSection(blockSectionText) {
+    // pulumurapp.dxf DraftSight tarafından binary DXF olarak kaydedilmişti.
+    // Blokları web DXF içine gömerken özgün handle/owner referanslarını aynen taşımak
+    // bazı CAD programlarında "bozuk DXF" uyarısı oluşturabiliyor.
+    // Çizim geometrisi için gerekli olmayan 5(handle) ve 330(owner) çiftlerini temizliyoruz.
+    const lines = String(blockSectionText || '').trim().split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i += 2) {
+      const code = String(lines[i] || '').trim();
+      const value = i + 1 < lines.length ? lines[i + 1] : '';
+      if (code === '5' || code === '330') continue;
+      out.push(lines[i], value);
+    }
+    return out.join('\n');
+  }
+
   function blocksSection() {
     const asset = root.PulumurBlocks;
-    if (asset && asset.blockSection) return String(asset.blockSection).trim();
+    if (asset && asset.blockSection) return stripUnstablePairsFromBlockSection(asset.blockSection);
     return [pair(0, 'SECTION'), pair(2, 'BLOCKS'), pair(0, 'ENDSEC')].join('\n');
   }
 

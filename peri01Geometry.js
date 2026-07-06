@@ -63,7 +63,7 @@
     pergoTextOffset: 250
   };
 
-  const BUILD_LABEL = 'WEB DXF V4 - BLOKLU TEST - 06.07.2026';
+  const BUILD_LABEL = 'WEB DXF V5 - DXF AC1024 FIX - 06.07.2026';
 
   const SAMPLE_INPUT = {
     product: 'Pergo Rise',
