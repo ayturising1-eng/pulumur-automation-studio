@@ -63,6 +63,8 @@
     pergoTextOffset: 250
   };
 
+  const BUILD_LABEL = 'WEB DXF V4 - BLOKLU TEST - 06.07.2026';
+
   const SAMPLE_INPUT = {
     product: 'Pergo Rise',
     moduleName: 'Module 1',
@@ -518,8 +520,9 @@
     g.rect(K.systemStartX, minY, 5200, 420, 'TITLE');
     g.rect(K.systemStartX, minY, 930, 420, 'PROFILE');
     g.text(K.systemStartX + 465, minY + 210, 'PLMR', 180, 'TITLE', 'center');
-    g.text(K.systemStartX + 1100, minY + 250, 'Pülümür Automation Studio | Parametrik Çizim ve Proje Otomasyonu', 85, 'TITLE', 'left');
-    g.text(K.systemStartX + 1100, minY + 120, `Ürün: ${d.product} | Modül: ${d.moduleName} | Motor: ${d.engine}`, 70, 'TEXT', 'left');
+    g.text(K.systemStartX + 1100, minY + 270, 'Pülümür Automation Studio | Parametrik Çizim ve Proje Otomasyonu', 85, 'TITLE', 'left');
+    g.text(K.systemStartX + 1100, minY + 150, BUILD_LABEL, 75, 'DIM', 'left');
+    g.text(K.systemStartX + 1100, minY + 55, `Ürün: ${d.product} | Modül: ${d.moduleName} | Motor: ${d.engine}`, 60, 'TEXT', 'left');
   }
 
   function buildDrawing(raw) {
@@ -601,7 +604,7 @@
     return parts.join('\n');
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, lspRayLen, lspSideAngleRad };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, lspRayLen, lspSideAngleRad };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

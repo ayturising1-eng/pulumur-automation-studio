@@ -1,4 +1,4 @@
-# Pülümür Automation Studio
+# Pülümür Automation Studio - V4 Bloklu Test
 
 Pergo Rise için tarayıcı üzerinden tek poz parametrik DXF üretim denemesi.
 
@@ -40,7 +40,7 @@ pulumur-automation-studio/
 ├─ dxfEngine.js
 ├─ samples/
 │  ├─ sample-input.json
-│  └─ pergo-rise-web-mvp-sample.dxf
+│  └─ pergo-rise-v4-block-test.dxf
 ├─ docs/
 │  └─ mvp-notlari.md
 └─ tools/
@@ -84,3 +84,8 @@ http://localhost:8080
 ## V3 Blok Eşleştirme
 
 Bu sürümde `pulumurapp.dxf` içindeki PERI01 blokları web DXF çıktısına `BLOCK / INSERT` mantığıyla eklenmiştir. Tek poz referansı olarak `DENEME-DENEME.dxf` kullanılmıştır. Trapez tarama, RISING LOGO ve PLMR logo şimdilik bilinçli olarak kullanılmamıştır.
+
+
+## V4 notu
+
+Bu paket, önceki örnekle karışmaması için çıktılara `WEB DXF V4 - BLOKLU TEST - 06.07.2026` yazısı ekler. Örnek dosya adı: `samples/pergo-rise-v4-block-test.dxf`.
