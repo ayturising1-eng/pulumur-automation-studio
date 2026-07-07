@@ -4,7 +4,7 @@
   const ids = [
     'product', 'moduleName', 'engine', 'customer', 'project', 'version', 'drawnBy', 'date',
     'systemCount', 'width', 'opening', 'rearHeight', 'frontHeight', 'rayCount', 'postCount',
-    'parapet', 'parapetHeight', 'glassTrack', 'structureColor', 'fabric', 'fabricProfiles',
+    'parapet', 'parapetHeight', 'glassTrack', 'sideTrack', 'structureColor', 'fabric', 'fabricProfiles',
     'motor', 'remote', 'led', 'dimmer', 'extras', 'triangleJoinery', 'waterStandard'
   ];
 
@@ -125,7 +125,7 @@
       }
       const dxf = window.PulumurDXF.toDxf(drawing);
       if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
-      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2-ray-post-cleanup-v${drawing.input.version}`);
+      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_2-top-oluk-triangle-side-mirror-v${drawing.input.version}`);
       downloadText(`${nameRoot}.dxf`, dxf);
       statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
     } catch (err) {

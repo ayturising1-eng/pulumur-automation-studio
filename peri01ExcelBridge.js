@@ -245,6 +245,7 @@
       B7_rayCount: rayText,
       B8_postCount: postCount,
       B9_glassTrack: normalizeYesNo(raw.glassTrack),
+      B9b_sideTrack: normalizeYesNo(raw.sideTrack),
       B10_waterStandard: normalizeYesNo(raw.waterStandard),
       B12_structureColor: safeLine(raw.structureColor),
       B13_fabric: safeLine(raw.fabric),

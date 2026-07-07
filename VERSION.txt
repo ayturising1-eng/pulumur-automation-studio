@@ -1,1 +1,1 @@
-V8.2.1 - V8.2 base + side blocks removed + Arial text style
+v8.2.2 - top gutter block off + triangle table limit + side mirror

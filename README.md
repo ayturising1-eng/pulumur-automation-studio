@@ -1,3 +1,14 @@
+# Pülümür Automation Studio V8.2.2
+
+Bu sürüm V8.2.1 çalışan tabanı üzerinden sadece hedefli düzeltmeler içerir.
+
+- Üst görünüşte `PergoRise Oluk` bloğu çizime gelmez; oluk çizgisel profil olarak kalır.
+- Üçgen doğrama aktifse üst sol tablonun triangle alanıyla çakışmasını azaltan PERI01 benzeri tablo limit/küçültme mantığı eklendi.
+- Yan Kayıt alanı eklendi.
+- Tek açılımda Yan Kayıt veya Cam Kaydı EVET ise yan görünüş ayna kopyası oluşur.
+- Çoklu/farklı açılımda PERI01 kuralına göre yalnız son yan görünüş pozunun ayna kopyası üretilir.
+- DXF yazı stili V8.2.1'deki Arial tabanlı ayarda korunur.
+
 # Pülümür Automation Studio — V8.2 PERI01 Ray/Dikme Fix
 
 Bu sürümde PERI01 Excel + LISP akışındaki önemli detaylar web çekirdeğine taşındı.
