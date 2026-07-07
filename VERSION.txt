@@ -1,2 +1,1 @@
-Pulumur Automation Studio Web DXF V8.2
-Ray/Dikme otomatik hesap ve çizim temizliği
+V8.2.1 - V8.2 base + side blocks removed + Arial text style
