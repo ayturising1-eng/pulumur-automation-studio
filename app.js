@@ -24,6 +24,33 @@
       if ($(id) && d[id] !== undefined) $(id).value = d[id];
     });
     $('date').value = today();
+    ['rayCount', 'postCount'].forEach(id => {
+      if ($(id)) $(id).dataset.userEdited = 'false';
+    });
+    applyAutoRayPost(true);
+  }
+
+  function applyAutoRayPost(force = false) {
+    const br = window.PulumurExcelBridge;
+    if (!br || typeof br.autoRayPostCount !== 'function') return;
+    const raw = collectForm();
+    const auto = br.autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight);
+    const rayEl = $('rayCount');
+    const postEl = $('postCount');
+    const rayWasManual = rayEl && rayEl.dataset.userEdited === 'true';
+    const postWasManual = postEl && postEl.dataset.userEdited === 'true';
+
+    if (rayEl && (force || !rayWasManual || String(rayEl.value || '').trim() === '')) {
+      rayEl.value = auto.rayText || '';
+      rayEl.dataset.userEdited = 'false';
+    }
+
+    const currentRayText = rayEl ? rayEl.value : auto.rayText;
+    const autoPost = br.postCountFromRayText ? br.postCountFromRayText(currentRayText, raw.systemCount, raw.width, raw.frontHeight) : auto.postCount;
+    if (postEl && (force || !postWasManual || String(postEl.value || '').trim() === '')) {
+      postEl.value = autoPost === '' || autoPost === null || autoPost === undefined ? '' : String(autoPost);
+      postEl.dataset.userEdited = 'false';
+    }
   }
 
   function collectForm() {
@@ -53,6 +80,7 @@
 
   function updatePreview() {
     try {
+      applyAutoRayPost(false);
       const data = collectForm();
       validateInput(data);
       const drawing = window.PulumurGeometry.buildDrawing(data);
@@ -97,7 +125,7 @@
       }
       const dxf = window.PulumurDXF.toDxf(drawing);
       if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
-      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_1-peri01-excel-bridge-v${drawing.input.version}`);
+      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2-ray-post-cleanup-v${drawing.input.version}`);
       downloadText(`${nameRoot}.dxf`, dxf);
       statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
     } catch (err) {
@@ -203,6 +231,17 @@
       if (!el) return;
       el.addEventListener('change', updatePreview);
       el.addEventListener('input', () => {
+        if (id === 'rayCount' || id === 'postCount') {
+          el.dataset.userEdited = String(el.value || '').trim() ? 'true' : 'false';
+          if (id === 'rayCount' && $('postCount') && $('postCount').dataset.userEdited !== 'true') {
+            const raw = collectForm();
+            const br = window.PulumurExcelBridge;
+            if (br && br.postCountFromRayText) $('postCount').value = br.postCountFromRayText(el.value, raw.systemCount, raw.width, raw.frontHeight);
+          }
+        }
+        if (['systemCount', 'width', 'frontHeight'].includes(id)) {
+          applyAutoRayPost(false);
+        }
         window.clearTimeout(el._previewTimer);
         el._previewTimer = window.setTimeout(updatePreview, 350);
       });

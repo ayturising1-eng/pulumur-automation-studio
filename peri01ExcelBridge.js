@@ -105,6 +105,35 @@
     return 4;
   }
 
+  function postCountFromRayText(rayTextRaw, systemCountRaw, widthRaw, frontHeightRaw) {
+    const rayText = String(rayTextRaw ?? '').trim();
+    if (!rayText) return '';
+    const systemCount = Math.max(1, Math.round(firstNumericToken(systemCountRaw) || 1));
+    const rayParts = splitSemi(rayText).filter(t => trUpper(t) !== 'NO');
+    if (!rayParts.length) return '';
+
+    let posCount;
+    let rayList;
+    if (rayParts.length === 1) {
+      const r = Math.max(0, Math.round(numericToken(rayParts[0]) || 0));
+      const widthText = String(widthRaw ?? '').trim();
+      if (noGapModeActive(widthText)) posCount = noGapParts(widthText).filter((_, i) => i % 2 === 0).length || systemCount;
+      else {
+        const wParts = splitSemi(widthText);
+        posCount = wParts.length > 1 ? wParts.length : systemCount;
+      }
+      rayList = Array.from({ length: Math.max(1, posCount) }, () => r);
+    } else {
+      rayList = rayParts.map(t => Math.max(0, Math.round(numericToken(t) || 0)));
+      posCount = rayList.length;
+    }
+
+    let postCount = rayList.reduce((a, b) => a + b, 0) - Math.max(0, posCount - 1);
+    const frontTokens = onlyNumericTokens(frontHeightRaw);
+    if (frontTokens.length && frontTokens.every(v => Math.abs(v) <= 0.000001)) postCount = 0;
+    return Math.max(0, postCount);
+  }
+
   function autoRayPostCount(systemCountRaw, widthRaw, frontHeightRaw) {
     const systemCount = Math.max(1, Math.round(firstNumericToken(systemCountRaw) || 1));
     const widthText = String(widthRaw ?? '').trim();
@@ -199,8 +228,12 @@
 
   function buildSayfa1Data(raw) {
     const auto = autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight);
-    const rayText = String(raw.rayCount ?? '').trim() ? String(raw.rayCount).trim() : auto.rayText;
-    const postCount = String(raw.postCount ?? '').trim() ? firstNumericToken(raw.postCount) : auto.postCount;
+    // Excel mantığı: ray sayısı boşsa genişlikten otomatik hesaplanır;
+    // kullanıcı 3;2;4 gibi manuel yazdıysa bu değer aynen esas alınır.
+    const rayManual = String(raw.rayCount ?? '').trim();
+    const rayText = rayManual ? rayManual : auto.rayText;
+    // Dikme sayısı boşsa, manuel/otomatik ray metnine göre toplam ray - (poz-1) formülü uygulanır.
+    const postCount = String(raw.postCount ?? '').trim() ? firstNumericToken(raw.postCount) : postCountFromRayText(rayText, raw.systemCount, raw.width, raw.frontHeight);
 
     const sayfa1 = {
       B1_width: optimizeWidthForSayfa1(raw.width, raw.glassTrack, raw.systemCount),
@@ -314,6 +347,7 @@
     noGapModeActive,
     rayCountForWidth,
     autoRayPostCount,
+    postCountFromRayText,
     optimizeWidthForSayfa1,
     buildSayfa1Data,
     calculateSystem

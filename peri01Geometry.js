@@ -9,7 +9,7 @@
     POST: { stroke: '#9a3412', width: 4 },
     WALL: { stroke: '#6b7280', width: 4, dash: '18 12' },
     TOPWALL: { stroke: '#9ca3af', width: 4, dash: '18 12' },
-    GLASS: { stroke: '#0891b2', width: 3 },
+    GLASS: { stroke: '#d946ef', width: 3 },
     WATER: { stroke: '#1d4ed8', width: 3 },
     DIM: { stroke: '#be123c', width: 2 },
     TEXT: { stroke: '#0f172a', width: 1 },
@@ -65,7 +65,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8 - PERI01 EXCEL BRIDGE - SAYFA1 DATAFLOW - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2 - PERI01 RAY/DIKME FIX - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -82,8 +82,8 @@
     opening: '4500',
     rearHeight: '3200',
     frontHeight: 2600,
-    rayCount: '2',
-    postCount: 2,
+    rayCount: '',
+    postCount: '',
     parapet: 'HAYIR',
     parapetHeight: 0,
     glassTrack: 'HAYIR',
@@ -245,7 +245,9 @@
     d.opening = d.openingList[0];
     d.rearHeight = d.rearHeightList[0];
     d.frontHeight = Math.max(0, numberValue(d.frontHeight, SAMPLE_INPUT.frontHeight));
-    d.rayCount = Math.max(1, intList(d.rayCount, SAMPLE_INPUT.rayCount)[0]);
+    // Ray sayısı noktalı virgüllü olabilir (örn. 3;2;4).
+    // Burada ilk değere indirgemiyoruz; buildSystems tüm listeyi okuyacak.
+    d.rayCountText = String(d.rayCount ?? '').trim();
     d.postCount = Math.max(0, intValue(d.postCount, SAMPLE_INPUT.postCount));
     d.parapetHeight = yes(d.parapet) ? Math.max(0, numberValue(d.parapetHeight, 0)) : 0;
     d.customer = textValue(d.customer, '-');
@@ -268,6 +270,8 @@
     d.noGapMode = sys.noGapMode;
     d.explicitWidth = sys.explicitWidth;
     d.explicitRay = sys.explicitRay;
+    d.totalRayCount = d.systems.reduce((a, sys) => a + (Number(sys.rayCount) || 0), 0);
+    d.rayCount = d.systems.length === 1 ? (d.systems[0].rayCount || 0) : d.totalRayCount;
     d.width = sys.totalNet;
     d.nominalWidth = sys.totalNominal;
     d.systemStartX = K.systemStartX;
@@ -428,9 +432,7 @@
       const y = topCatiProfilYAt(d, interval.system);
       const shift = (p.rayLength / K.catiProfilRayRatioBase) * K.catiProfilRayRatioMove + K.catiProfilExtraOffset;
       g.rect(interval.x, y, interval.len, K.catiProfilH, 'FABRIC');
-      blockRef(g, 'PergoRise Çatı Kayıt Profili', interval.x, y, interval.len, 40, 'FABRIC', 0, interval.len / 100, 1);
       g.rect(interval.x, y - shift, interval.len, K.catiProfilH, 'FABRIC');
-      blockRef(g, 'PergoRise Çatı Kayıt Profili', interval.x, y - shift, interval.len, 40, 'FABRIC', 0, interval.len / 100, 1);
     });
   }
 
@@ -456,7 +458,7 @@
     }
   }
 
-  function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } g.text(K.systemStartX, 1050, 'ÜST GÖRÜNÜŞ - PERI01 V8 SAYFA1 DATAFLOW', 110, 'TITLE', 'left'); }
+  function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } }
 
   function drawFrontView(g, d) {
     const postXs = postCenterXs(d);
@@ -464,7 +466,6 @@
     const onDikmeH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
     const altBlokY = rectStartY - d.frontHeight + K.altBlockCorrection + d.parapetHeight;
     g.rect(K.gutterX, rectStartY, d.width + 100, K.frontGutterH, 'PROFILE');
-    blockRef(g, 'PergoRise Oluk', 500, rectStartY, 390, 120);
     if (yes(d.parapet) && d.parapetHeight > 0) { const pBaseY = rectStartY - d.frontHeight; const pTopY = pBaseY + d.parapetHeight; g.rect(K.systemStartX, pTopY, d.width, -d.parapetHeight, 'WALL'); }
     d.systems.forEach(sys => {
       const p = d.positions[sys.index] || d.positions[0];
@@ -477,7 +478,7 @@
     addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
     addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
     if (d.systemCount > 1 && postXs.length > 1) { const midY = rectStartY - onDikmeH / 2; for (let i = 0; i < postXs.length - 1; i += 1) addDimH(g, postXs[i] + 50, postXs[i + 1] - 50, midY, midY, formatMm(postXs[i + 1] - postXs[i] - 100)); }
-    g.text(K.systemStartX, rectStartY + 420, 'ÖN / KARŞI GÖRÜNÜŞ', 110, 'TITLE', 'left');
+
   }
 
   function drawOneSideView(g, d, p, stackShiftY) {
@@ -505,12 +506,14 @@
     blockRef(g, 'PergoRise Ray Duvar Bağlantı Set', bagX, bagY, 120, 95); blockRef(g, 'PergoRise Ray Arka Mekanizma Yan Görünüş', arkaMekX, arkaMekY, 135, 90, 'BLOCKREF', normDeg(aci * 180 / Math.PI));
     rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'RAY'); rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'RAY');
     const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci); const rotDeg = normDeg(aci * 180 / Math.PI); blockRef(g, 'PergoRise Ray Kafası Yan Görünüş', kafa[0], kafa[1], 130, 90, 'BLOCKREF', rotDeg);
-    const cati1 = rotatePoint(startRayX + 150, startRayY - K.sideRayH, arkaMekX, arkaMekY, aci); const cati2 = rotatePoint(startRayX + ((rayLen / 490) * 47 + 250), startRayY - K.sideRayH, arkaMekX, arkaMekY, aci); blockRef(g, 'PergoRise Çatı Kayıt Profili', cati1[0], cati1[1], 220, 40, 'FABRIC', rotDeg); blockRef(g, 'PergoRise Çatı Kayıt Profili', cati2[0], cati2[1], 220, 40, 'FABRIC', rotDeg);
+    // Çatı kayıt profili bu sürümde blok olarak değil, sade dikdörtgen olarak çizilir.
+    rotatedRect(g, startRayX + 150, startRayY - K.sideRayH, 220, -K.catiProfilH, arkaMekX, arkaMekY, aci, 'FABRIC');
+    rotatedRect(g, startRayX + ((rayLen / 490) * 47 + 250), startRayY - K.sideRayH, 220, -K.catiProfilH, arkaMekX, arkaMekY, aci, 'FABRIC');
     const arabaKalin = rotatePoint(startRayX + rayLen - 165, startRayY - 0.5, arkaMekX, arkaMekY, aci); const arabaInce = rotatePoint(startRayX + rayLen - 615, startRayY - 1.4, arkaMekX, arkaMekY, aci); blockRef(g, 'PergoRise RayÇekici Araba Set Kalın', arabaKalin[0], arabaKalin[1], 210, 75, 'BLOCKREF', rotDeg); blockRef(g, 'PergoRise RayÇekici Araba Set İnce', arabaInce[0], arabaInce[1], 210, 75, 'BLOCKREF', rotDeg);
     const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci); g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
     if (!yes(d.waterStandard)) { const basX = yanX - 35.5; const basY = yanUstY + 13.9; g.rect(basX, basY, 300, 70, 'WATER'); g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left'); }
     if (yes(d.triangleJoinery) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) { const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / (p.opening - K.slopeOpeningCorrection)); const AB = Math.max(1, p.opening - 150); const BC = 165 + 150 * slope; const rise = AB * slope; const AD = BC + rise; const baseX = duvarX + 75; const baseY = bagY + 600; g.poly([[baseX, baseY], [baseX + AB, baseY], [baseX + AB, baseY + BC], [baseX, baseY + AD]], true, 'GLASS'); const ara = Math.max(0, Math.floor((AB - 0.000001) / 2000)); for (let i = 1; i <= ara; i += 1) { const x = baseX + (AB * i / (ara + 1)); const t = (x - baseX) / AB; const yTop = baseY + AD - (AD - BC) * t; g.line(x, baseY, x, yTop, 'GLASS'); } g.text(baseX + AB / 2, baseY + AD + 150, 'ÜÇGEN DOĞRAMA', 80, 'GLASS', 'center'); }
-    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`); addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`); g.text(duvarX, bagY + 850, d.sidePositionCount > 1 ? `YAN GÖRÜNÜŞ - POZ ${p.index + 1}` : 'YAN GÖRÜNÜŞ', 110, 'TITLE', 'left');
+    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`); addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`);
   }
 
   function drawSideView(g, d) { d.farkliAcilim = d.openingList.length > 1; let shiftY = 0; for (let i = 0; i < d.sidePositionCount; i += 1) { const p = { ...d.positions[i], index: i }; drawOneSideView(g, d, p, shiftY); shiftY -= (p.opening + K.sideViewGapY); } }

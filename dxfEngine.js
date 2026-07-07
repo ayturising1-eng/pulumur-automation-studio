@@ -9,7 +9,7 @@
     POST: 6,
     WALL: 8,
     TOPWALL: 8,
-    GLASS: 4,
+    GLASS: 6,
     WATER: 5,
     DIM: 1,
     TEXT: 7,

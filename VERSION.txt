@@ -1,4 +1,2 @@
-Pulumur Automation Studio Web DXF V8.1
-- DXF button try/catch + download fix
-- System measurement inputs converted to free text for ; / NO entry
-- Front/post/parapet numeric parsing now uses first numeric token
+Pulumur Automation Studio Web DXF V8.2
+Ray/Dikme otomatik hesap ve çizim temizliği
