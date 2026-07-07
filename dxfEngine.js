@@ -58,7 +58,7 @@
   function headerSection() {
     return [
       pair(0, 'SECTION'), pair(2, 'HEADER'),
-      pair(9, '$ACADVER'), pair(1, 'AC1009'),
+      pair(9, '$ACADVER'), pair(1, 'AC1015'),
       pair(9, '$INSBASE'), pair(10, 0), pair(20, 0), pair(30, 0),
       pair(9, '$EXTMIN'), pair(10, -10000), pair(20, -20000), pair(30, 0),
       pair(9, '$EXTMAX'), pair(10, 12000), pair(20, 6000), pair(30, 0),
@@ -161,6 +161,25 @@
     return out;
   }
 
+
+  function mtextEntity(e) {
+    const value = cleanText(String(e.value || '').replace(/\\P/g, '\n')).replace(/\n/g, '\\P');
+    return [
+      pair(0, 'MTEXT'),
+      pair(8, cleanText(e.layer || 'TEXT')),
+      pair(62, layerColor(e.layer)),
+      pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
+      pair(40, fixed(e.height || 80)),
+      pair(41, fixed(e.width || 1000)),
+      pair(71, e.align === 'center' ? 2 : (e.align === 'right' ? 3 : 1)),
+      pair(72, 1),
+      pair(1, value),
+      pair(7, 'STANDARD'),
+      pair(50, fixed(e.rotation || 0))
+    ];
+  }
+
+
   function rotatePoint(px, py, bx, by, deg) {
     const a = (Number(deg) || 0) * Math.PI / 180;
     const dx = px - bx;
@@ -177,7 +196,7 @@
       pair(8, cleanText(e.layer || 'BLOCKREF')),
       pair(2, name),
       pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
-      pair(41, fixed(e.scaleX || 1)), pair(42, fixed(e.scaleY || 1)), pair(43, 1),
+      pair(41, fixed(Math.abs(e.scaleX || 1))), pair(42, fixed(e.scaleY || 1)), pair(43, 1),
       pair(50, fixed(e.rotation || 0))
     ];
   }
@@ -220,13 +239,37 @@
     return ['Duvar Tarama Block', 'Trapez Tarama', 'RISING LOGO'].includes(String(name || ''));
   }
 
-  function collectSharedBlocks(drawing, sourceBlocks) {
+  
+  function mirrorBlockEntityX(entity) {
+    if (entity.type === 'line') return { ...entity, x1: -Number(entity.x1 || 0), x2: -Number(entity.x2 || 0) };
+    if (entity.type === 'polyline') return { ...entity, points: (entity.points || []).map(p => [-Number(p[0] || 0), Number(p[1] || 0)]).reverse() };
+    if (entity.type === 'circle') return { ...entity, x: -Number(entity.x || 0) };
+    return { ...entity };
+  }
+
+  function mirroredBlockFrom(src, baseName) {
+    const entities = (src.entities || []).map(mirrorBlockEntityX);
+    const bounds = src.bounds ? {
+      minX: -Number(src.bounds.maxX || 0),
+      maxX: -Number(src.bounds.minX || 0),
+      minY: Number(src.bounds.minY || 0),
+      maxY: Number(src.bounds.maxY || 0)
+    } : src.bounds;
+    return { ...src, entities, bounds, dxfName: `${baseName}_MIRROR` };
+  }
+
+function collectSharedBlocks(drawing, sourceBlocks) {
     const used = {};
     (drawing.entities || []).forEach(e => {
       if (e.type === 'insert' && sourceBlocks[e.name]) {
         const src = sourceBlocks[e.name];
-        const name = src.dxfName || dxfName(e.name);
-        used[e.name] = { ...src, dxfName: name };
+        const baseName = src.dxfName || dxfName(e.name);
+        if (e.mirrorX) {
+          const key = `${e.name}__MIRROR`;
+          used[key] = mirroredBlockFrom(src, baseName);
+        } else {
+          used[e.name] = { ...src, dxfName: baseName };
+        }
       }
     });
     return used;
@@ -300,10 +343,15 @@
       else if (e.type === 'polyline') append(out, polyEntity(e));
       else if (e.type === 'circle') append(out, circleEntity(e));
       else if (e.type === 'text') append(out, textEntity(e));
+      else if (e.type === 'mtext') append(out, mtextEntity(e));
       else if (e.type === 'insert') {
         if (isHeavyDisabledBlockName(e.name)) return;
         const block = sourceBlocks[e.name];
-        if (block) append(out, insertEntity(e, block));
+        if (block) {
+          const usedKey = e.mirrorX ? `${e.name}__MIRROR` : e.name;
+          const usedBlock = blocks[usedKey] || block;
+          append(out, insertEntity(e, usedBlock));
+        }
         else append(out, insertAsSafePreview(e));
       }
     });

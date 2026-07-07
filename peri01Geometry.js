@@ -20,6 +20,7 @@
 
   // PERI01 LISP'ten web tabanına taşınan ana sabitler.
   const K = {
+    showDimensions: false,
     systemStartX: 300,
     gutterX: 250,
     sideBaseX: -1450,
@@ -65,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.2 - TOP OLUK BLOCK OFF + TRIANGLE TABLE + SIDE MIRROR - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.4 - MIRROR MTEXT NO DIM - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -321,16 +322,23 @@
       },
       poly(points, closed = false, layer = 'OUTLINE') { return push({ type: 'polyline', points, closed, layer }); },
       text(x, y, value, height = 90, layer = 'TEXT', align = 'left', rotation = 0) { return push({ type: 'text', x, y, value: String(value ?? ''), height, layer, align, rotation }); },
+      mtext(x, y, value, height = 90, width = 1000, layer = 'TEXT', align = 'left', rotation = 0, lineSpacing = 1.15) { return push({ type: 'mtext', x, y, value: String(value ?? ''), height, width, layer, align, rotation, lineSpacing }); },
       insert(name, x, y, options = {}) { return push({ type: 'insert', name: String(name ?? ''), x, y, layer: options.layer || 'BLOCKREF', rotation: options.rotation || 0, scaleX: options.scaleX || 1, scaleY: options.scaleY || 1, previewW: options.previewW || 120, previewH: options.previewH || 80 }); }
     };
   }
 
   function addArrow(g, x, y, angle, size, layer) { g.line(x, y, x + Math.cos(angle + Math.PI * 0.84) * size, y + Math.sin(angle + Math.PI * 0.84) * size, layer); g.line(x, y, x + Math.cos(angle - Math.PI * 0.84) * size, y + Math.sin(angle - Math.PI * 0.84) * size, layer); }
-  function addDimH(g, x1, x2, yRef, yDim, label) { const layer = 'DIM'; g.line(x1, yRef, x1, yDim, layer); g.line(x2, yRef, x2, yDim, layer); g.line(x1, yDim, x2, yDim, layer); addArrow(g, x1, yDim, 0, 70, layer); addArrow(g, x2, yDim, Math.PI, 70, layer); g.text((x1 + x2) / 2, yDim + 95, label, 85, layer, 'center'); }
-  function addDimV(g, y1, y2, xRef, xDim, label) { const layer = 'DIM'; g.line(xRef, y1, xDim, y1, layer); g.line(xRef, y2, xDim, y2, layer); g.line(xDim, y1, xDim, y2, layer); addArrow(g, xDim, y1, Math.PI / 2, 70, layer); addArrow(g, xDim, y2, -Math.PI / 2, 70, layer); g.text(xDim - 120, (y1 + y2) / 2, label, 85, layer, 'center', 90); }
+  function addDimH(g, x1, x2, yRef, yDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(x1, yRef, x1, yDim, layer); g.line(x2, yRef, x2, yDim, layer); g.line(x1, yDim, x2, yDim, layer); addArrow(g, x1, yDim, 0, 70, layer); addArrow(g, x2, yDim, Math.PI, 70, layer); g.text((x1 + x2) / 2, yDim + 95, label, 85, layer, 'center'); }
+  function addDimV(g, y1, y2, xRef, xDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(xRef, y1, xDim, y1, layer); g.line(xRef, y2, xDim, y2, layer); g.line(xDim, y1, xDim, y2, layer); addArrow(g, xDim, y1, Math.PI / 2, 70, layer); addArrow(g, xDim, y2, -Math.PI / 2, 70, layer); g.text(xDim - 120, (y1 + y2) / 2, label, 85, layer, 'center', 90); }
   function rotatePoint(px, py, bx, by, ang) { const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang); return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca]; }
   function getBlocks() { return (root.PulumurFilteredBlocks && root.PulumurFilteredBlocks.blocks) ? root.PulumurFilteredBlocks.blocks : {}; }
-  function transformLocalPoint(px, py, ins) { const sx = Number(ins.scaleX) || 1, sy = Number(ins.scaleY) || 1, a = (Number(ins.rotation) || 0) * Math.PI / 180; const x = px * sx, y = py * sy, ca = Math.cos(a), sa = Math.sin(a); return [ins.x + x * ca - y * sa, ins.y + x * sa + y * ca]; }
+  function transformLocalPoint(px, py, ins) {
+    const sx = Math.abs(Number(ins.scaleX) || 1), sy = Number(ins.scaleY) || 1;
+    const lx = ins.mirrorX ? -px : px;
+    const a = (Number(ins.rotation) || 0) * Math.PI / 180;
+    const x = lx * sx, y = py * sy, ca = Math.cos(a), sa = Math.sin(a);
+    return [ins.x + x * ca - y * sa, ins.y + x * sa + y * ca];
+  }
   function transformBlockBounds(block, ins) { const b = block.bounds || { minX: -50, minY: -50, maxX: 50, maxY: 50 }; const pts = [[b.minX, b.minY], [b.maxX, b.minY], [b.maxX, b.maxY], [b.minX, b.maxY]].map(p => transformLocalPoint(p[0], p[1], ins)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
 
   function mirrorEntityX(e, midX) {
@@ -339,7 +347,7 @@
     if (e.type === 'polyline') return { ...e, points: (e.points || []).map(p => [mx(p[0]), p[1]]) };
     if (e.type === 'circle') return { ...e, x: mx(e.x) };
     if (e.type === 'text') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)) };
-    if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)), scaleX: -(Number(e.scaleX) || 1) };
+    if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)), scaleX: Math.abs(Number(e.scaleX) || 1), mirrorX: !e.mirrorX };
     return { ...e };
   }
 
@@ -347,6 +355,44 @@
     const made = g.entities.slice(startIndex);
     made.forEach(e => g.entities.push(mirrorEntityX(e, midX)));
   }
+  function entityMinY(e) {
+    const b = entityBounds(e);
+    return b ? b[1] : 0;
+  }
+
+  function entityIsPostLike(e) {
+    if (!e) return false;
+    if (e.layer === 'POST') return true;
+    const n = String(e.name || '').toLocaleUpperCase('tr-TR');
+    return n.includes('DIKME');
+  }
+
+  function rangeMinYForPostLike(g, startIndex, endIndex) {
+    const vals = [];
+    for (let i = startIndex; i < endIndex; i += 1) {
+      if (entityIsPostLike(g.entities[i])) vals.push(entityMinY(g.entities[i]));
+    }
+    if (!vals.length) {
+      for (let i = startIndex; i < endIndex; i += 1) vals.push(entityMinY(g.entities[i]));
+    }
+    return vals.length ? Math.min(...vals) : 0;
+  }
+  function moveEntityY(e, dy) {
+    if (e.type === 'line') { e.y1 += dy; e.y2 += dy; }
+    else if (e.type === 'polyline') { e.points = (e.points || []).map(p => [p[0], p[1] + dy]); }
+    else if (e.type === 'circle') { e.y += dy; }
+    else if (e.type === 'text') { e.y += dy; }
+    else if (e.type === 'insert') { e.y += dy; }
+  }
+  function moveEntityRangeY(g, startIndex, endIndex, dy) {
+    for (let i = startIndex; i < endIndex; i += 1) moveEntityY(g.entities[i], dy);
+  }
+  function frontViewMinY(d) {
+    // PERI01: son poz sağ/ayna yan görünüşü, karşı görünüşün -Y uç hattına hizalanır.
+    // Karşı görünüşte alt bağlantı bloğu + dikme alt kotu yaklaşık bu referanstadır.
+    return d.commonFrontRectStartY - d.frontHeight + d.parapetHeight;
+  }
+
 
   function sideMirrorNeeded(d, p) {
     const differentOpening = d.openingList.length > 1;
@@ -551,6 +597,32 @@
     return 600 + AD + 300;
   }
 
+  function sideViewTopLimitY(d) {
+    // PERI01 kuralı: sol yan görünüşün +Y yönündeki en uç noktası ile üst tablo arasında
+    // her zaman boşluk kalmalı. Üçgen doğrama varsa en üst referans üçgenin ölçü çizgisi,
+    // yoksa arka duvarın +Y yönündeki en uç noktasıdır.
+    let best = null;
+    let shiftY = 0;
+    for (let i = 0; i < d.sidePositionCount; i += 1) {
+      const p = d.positions[i] || d.positions[0];
+      const wallTopY = -p.opening - K.frontViewExtraDrop + shiftY;
+      let topY = wallTopY;
+      const triangleVisible = yes(d.triangleJoinery) && (!d.farkliAcilim || i === 0 || i === d.sidePositionCount - 1);
+      if (triangleVisible) {
+        const denom = Math.abs(p.opening - K.slopeOpeningCorrection) < 1e-9 ? 1 : (p.opening - K.slopeOpeningCorrection);
+        const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / denom);
+        const AB = Math.max(1, p.opening - 150);
+        const BC = 165 + 150 * slope;
+        const AD = BC + AB * slope;
+        const triangleTopY = wallTopY + 600 + AD + 300; // ürün + üst ölçü payı
+        topY = Math.max(topY, triangleTopY);
+      }
+      best = best == null ? topY : Math.max(best, topY);
+      shiftY -= (p.opening + K.sideViewGapY);
+    }
+    return best == null ? null : best + 300; // tablo ile çizim arasında güvenli boşluk
+  }
+
   function triangleTableLimitY(d) {
     if (!yes(d.triangleJoinery)) return null;
     const idxs = [];
@@ -580,15 +652,26 @@
   function drawSideView(g, d) {
     d.farkliAcilim = d.openingList.length > 1;
     let shiftY = 0;
+    let lastMirrorRange = null;
     for (let i = 0; i < d.sidePositionCount; i += 1) {
       const p = { ...d.positions[i], index: i };
       const start = g.entities.length;
       drawOneSideView(g, d, p, shiftY);
       if (sideMirrorNeeded(d, p)) {
         const midX = K.systemStartX + d.width / 2;
+        const mirrorStart = g.entities.length;
         mirrorNewEntitiesX(g, start, midX);
+        const mirrorEnd = g.entities.length;
+        lastMirrorRange = { start: mirrorStart, end: mirrorEnd, index: p.index };
       }
       shiftY -= (p.opening + K.sideViewGapY);
+    }
+    // PERI01 v56/v75 kuralı: ayna yan görünüş, özellikle çoklu/farklı açılımda
+    // karşı görünüşün -Y en uç hattına hizalanır. Tek pozda da aynı kuralı koruyoruz.
+    if (lastMirrorRange) {
+      const minY = rangeMinYForPostLike(g, lastMirrorRange.start, lastMirrorRange.end);
+      const dy = frontViewMinY(d) - minY;
+      if (Number.isFinite(dy) && Math.abs(dy) > 0.001) moveEntityRangeY(g, lastMirrorRange.start, lastMirrorRange.end, dy);
     }
   }
 
@@ -641,12 +724,34 @@
     return Math.max(1, ...repeatCharCountText(value).split('\n').map(x => x.length));
   }
 
+  function fitCellText(value, w, rowH, baseH, padX) {
+    // PERI01'e yakın dinamik yazı kuralı:
+    // 1) Metin hücre genişliğine göre kırılır.
+    // 2) Satırlar hücre yüksekliğine sığmıyorsa yazı yüksekliği kademeli düşürülür.
+    // 3) En düşük değere rağmen sığmıyorsa satır kırma artırılır; MTEXT içinde düzenlenebilir kalır.
+    let hh = Number(baseH) || 90;
+    const minH = Math.max(18, hh * 0.38);
+    let lines = wrapTextForWidth(value, w, hh, padX);
+    for (let step = 0; step < 18; step += 1) {
+      const lineStep = hh * 1.15;
+      const totalH = hh + Math.max(0, lines.length - 1) * lineStep;
+      if (totalH <= Math.max(1, rowH - 2 * padX)) break;
+      hh = Math.max(minH, hh * 0.90);
+      lines = wrapTextForWidth(value, w, hh, padX);
+      if (hh <= minH + 0.001) break;
+    }
+    return { h: hh, lines };
+  }
+
   function drawCellLines(g, x, yTop, w, rowH, h, padX, value, layer = 'TEXT') {
-    const lines = Array.isArray(value) ? value : wrapTextForWidth(value, w, h, padX);
-    const lineStep = h * 1.25;
-    const totalH = h + (lines.length - 1) * lineStep;
-    const firstY = yTop - rowH / 2 + totalH / 2 - h * 0.35;
-    lines.forEach((line, i) => g.text(x + padX, firstY - i * lineStep, line, h, layer, 'left'));
+    const fit = fitCellText(value, w, rowH, h, padX);
+    const textY = yTop - padX * 0.35;
+    if (typeof g.mtext === 'function') {
+      g.mtext(x + padX, textY, fit.lines.join('\\P'), fit.h, Math.max(1, w - 2 * padX), layer, 'left', 0, 1.15);
+    } else {
+      const lineStep = fit.h * 1.15;
+      fit.lines.forEach((line, i) => g.text(x + padX, textY - i * lineStep, line, fit.h, layer, 'left'));
+    }
   }
 
   function upperTableStyle(d) {
@@ -738,10 +843,16 @@
     });
     let tableH = rowHeights.reduce((a, b) => a + b, 0);
     const triLimitY = triangleTableLimitY(d);
-    if (triLimitY !== null) {
-      const allowedH = tableY - triLimitY;
+    const sideLimitY = sideViewTopLimitY(d);
+    const limitCandidates = [triLimitY, sideLimitY].filter(v => v !== null && Number.isFinite(v));
+    const tableLimitY = limitCandidates.length ? Math.max(...limitCandidates) : null;
+    if (tableLimitY !== null) {
+      const allowedH = tableY - tableLimitY;
       if (allowedH > st.txtH && tableH > allowedH) {
-        const k = Math.max(0.35, allowedH / tableH);
+        // PERI01 tablo sıkıştırma mantığı: tablo, sol yan görünüşün üst sınırına yaklaşırsa
+        // satır yükseklikleri küçültülür. 0.22 altına inmiyoruz; okunurluk çok bozulursa
+        // çerçeve büyütme sonraki revizyonda yapılır.
+        const k = Math.max(0.22, allowedH / tableH);
         rowHeights = rowHeights.map(h => h * k);
         tableH = rowHeights.reduce((a, b) => a + b, 0);
       }
@@ -786,8 +897,9 @@
     g.line(x, y - row1H, x + frame.w, y - row1H, 'TITLE');
 
     const drawSingle = (x0, yTop, w, hRow, value) => {
-      const h = fitTextHSingleLine(value, w, st.txtH, st.txtX);
-      g.text(x0 + st.txtX, yTop - hRow / 2 + h * 0.35, value, h, 'TEXT', 'left');
+      const fit = fitCellText(value, w, hRow, st.txtH, st.txtX);
+      if (typeof g.mtext === 'function') g.mtext(x0 + st.txtX, yTop - st.txtX * 0.25, fit.lines.join('\\P'), fit.h, Math.max(1, w - 2 * st.txtX), 'TEXT', 'left', 0, 1.15);
+      else g.text(x0 + st.txtX, yTop - hRow / 2 + fit.h * 0.35, fit.lines.join(' '), fit.h, 'TEXT', 'left');
     };
     drawSingle(x, y, c1, row1H, 'CUSTOMER');
     drawSingle(ax1, y, c2, row1H, d.customer);
@@ -821,14 +933,27 @@
     return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: getBlocks() };
   }
 
-  function entityBounds(e) { if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)]; if (e.type === 'text') return [e.x, e.y, e.x + e.value.length * e.height * 0.55, e.y + e.height]; if (e.type === 'polyline') { const xs = e.points.map(p => p[0]), ys = e.points.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; } if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r]; if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) return transformBlockBounds(block, e); const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80); return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2]; } return [0, 0, 0, 0]; }
+  function entityBounds(e) {
+    if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)];
+    if (e.type === 'text') return [e.x, e.y, e.x + String(e.value || '').length * e.height * 0.55, e.y + e.height];
+    if (e.type === 'mtext') {
+      const lines = String(e.value || '').split('\\P');
+      const width = Number(e.width || 0);
+      const height = (Number(e.height) || 0) * Math.max(1, lines.length) * 1.2;
+      return [e.x, e.y - height, e.x + width, e.y];
+    }
+    if (e.type === 'polyline') { const xs = e.points.map(p => p[0]), ys = e.points.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
+    if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r];
+    if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) return transformBlockBounds(block, e); const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80); return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2]; }
+    return [0, 0, 0, 0];
+  }
   function bounds(entities) { const b = entities.map(entityBounds); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
   function escXml(s) { return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
   function renderSvg(drawing) {
     const ents = drawing.entities; const b = bounds(ents); const pad = 450; const minX = b.minX - pad; const maxY = b.maxY + pad; const viewW = b.width + pad * 2; const viewH = b.height + pad * 2; const sx = x => x - minX; const sy = y => maxY - y; const parts = [];
     parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}">`); parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
-    for (const e of ents) { const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE; const stroke = st.stroke; const sw = st.width; const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : ''; if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'polyline') { const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); } else if (e.type === 'text') { const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`); } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) { const group = []; (block.entities || []).forEach(be => { const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF; const bstroke = bst.stroke; const bsw = Math.max(1, (bst.width || 2)); if (be.type === 'line') { const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e); group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'polyline') { const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'circle') { const p = transformLocalPoint(be.x, be.y, e); const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2)); group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } }); parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`); } else { const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : ''; parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`); } } }
+    for (const e of ents) { const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE; const stroke = st.stroke; const sw = st.width; const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : ''; if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'polyline') { const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); } else if (e.type === 'text') { const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`); } else if (e.type === 'mtext') { const lines = String(e.value || '').split('\\P'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join(''); parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`); } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) { const group = []; (block.entities || []).forEach(be => { const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF; const bstroke = bst.stroke; const bsw = Math.max(1, (bst.width || 2)); if (be.type === 'line') { const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e); group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'polyline') { const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'circle') { const p = transformLocalPoint(be.x, be.y, e); const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2)); group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } }); parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`); } else { const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : ''; parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`); } } }
     parts.push('</svg>'); return parts.join('\n');
   }
 
