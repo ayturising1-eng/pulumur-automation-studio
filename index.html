@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pülümür Automation Studio</title>
-  <link rel="stylesheet" href="style.css?v=8.2" />
+  <link rel="stylesheet" href="style.css?v=8.3" />
 </head>
 <body>
   <header class="app-header">
@@ -12,7 +12,7 @@
       <div class="brand-mark">PLMR</div>
       <div>
         <h1>Pülümür Automation Studio</h1>
-        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.2 · Ray/Dikme Fix</p>
+        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.3 · PERI01 Temiz Görünüş</p>
       </div>
     </div>
     <div class="top-actions">
@@ -24,31 +24,16 @@
   <main class="layout">
     <section class="panel input-panel" aria-label="Parametreler">
       <div class="selector-grid">
-        <label>
-          <span>Ürün</span>
-          <select id="product">
-            <option selected>Pergo Rise</option>
-          </select>
-        </label>
-        <label>
-          <span>Module</span>
-          <select id="moduleName">
-            <option selected>Module 1</option>
-          </select>
-        </label>
-        <label>
-          <span>Çizim Motoru</span>
-          <select id="engine">
-            <option selected>Web DXF</option>
-          </select>
-        </label>
+        <label><span>Ürün</span><select id="product"><option selected>Pergo Rise</option></select></label>
+        <label><span>Module</span><select id="moduleName"><option selected>Module 1</option></select></label>
+        <label><span>Çizim Motoru</span><select id="engine"><option selected>Web DXF</option></select></label>
       </div>
 
       <div class="form-grid">
         <fieldset>
           <legend>Proje Bilgileri</legend>
-          <label><span>Müşteri</span><input id="customer" autocomplete="organization" /></label>
-          <label><span>Proje</span><input id="project" /></label>
+          <label><span>Müşteri</span><input id="customer" value="DENEME" /></label>
+          <label><span>Proje</span><input id="project" value="DENEME" /></label>
           <label><span>Versiyon</span><input id="version" value="01" /></label>
           <label><span>Çizen</span><input id="drawnBy" value="AYETULLAH KILINC" /></label>
           <label><span>Tarih</span><input id="date" type="date" /></label>
@@ -56,37 +41,36 @@
 
         <fieldset>
           <legend>Sistem Ölçüleri</legend>
-          <label><span>Sistem Adedi</span><input id="systemCount" type="text" inputmode="text" value="1" placeholder="Örn. 1" /></label>
-          <label><span>Genişlik <b>(mm)</b></span><input id="width" type="text" inputmode="text" placeholder="Örn. 4000 veya 3000;100;2500;NO" /></label>
-          <label><span>Açılım <b>(mm)</b></span><input id="opening" type="text" inputmode="text" placeholder="Örn. 6000 veya 4500;5200" /></label>
-          <label><span>Arka Yükseklik <b>(mm)</b></span><input id="rearHeight" type="text" inputmode="text" placeholder="Örn. 3200 veya 3200;3400" /></label>
-          <label><span>Ön Yükseklik <b>(mm)</b> <em>Oluk Altı</em></span><input id="frontHeight" type="text" inputmode="text" placeholder="Örn. 2600" /></label>
-          <label><span>Ray Sayısı <b>Bir Sistem</b></span><input id="rayCount" type="text" inputmode="text" placeholder="Örn. 2 veya 2;3;2" /></label>
-          <label><span>Dikme Sayısı <b>Tüm Sistem</b></span><input id="postCount" type="text" inputmode="text" placeholder="Örn. 2 veya boş: otomatik" /></label>
+          <label><span>Sistem Adedi</span><input id="systemCount" type="text" value="1" /></label>
+          <label><span>Genişlik <b>(mm)</b></span><input id="width" type="text" value="4000" /></label>
+          <label><span>Açılım <b>(mm)</b></span><input id="opening" type="text" value="6000" /></label>
+          <label><span>Arka Yükseklik <b>(mm)</b></span><input id="rearHeight" type="text" value="3200" /></label>
+          <label><span>Ön Yükseklik <b>(mm)</b> <em>Oluk Altı</em></span><input id="frontHeight" type="text" value="2299" /></label>
+          <label><span>Ray Sayısı <b>Bir Sistem</b></span><input id="rayCount" type="text" placeholder="Boş bırak: otomatik" /></label>
+          <label><span>Dikme Sayısı <b>Tüm Sistem</b></span><input id="postCount" type="text" placeholder="Boş bırak: otomatik" /></label>
         </fieldset>
 
         <fieldset>
           <legend>Opsiyonlar</legend>
           <label><span>Parapet</span><select id="parapet"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Parapet Yüksekliği <b>(mm)</b></span><input id="parapetHeight" type="text" inputmode="text" placeholder="-" /></label>
+          <label><span>Parapet Yüksekliği <b>(mm)</b></span><input id="parapetHeight" type="text" value="0" /></label>
           <label><span>Cam Kaydı</span><select id="glassTrack"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Structure Color</span><input id="structureColor" placeholder="-" /></label>
-          <label><span>Fabric</span><input id="fabric" placeholder="-" /></label>
-          <label><span>Fabric Profiles</span><input id="fabricProfiles" placeholder="-" /></label>
-          <label><span>Motor</span><input id="motor" placeholder="-" /></label>
-          <label><span>Remote</span><input id="remote" placeholder="-" /></label>
-          <label><span>LED</span><input id="led" placeholder="-" /></label>
-          <label><span>Dimmer</span><input id="dimmer" placeholder="-" /></label>
-          <label class="span-two"><span>Extras / Notes</span><textarea id="extras" rows="3" placeholder="-"></textarea></label>
+          <label><span>Yan Kayıt</span><select id="sideTrack"><option>HAYIR</option><option>EVET</option></select></label>
+          <label><span>Structure Color</span><input id="structureColor" value="RAL 7016 TEXT." /></label>
+          <label><span>Fabric</span><input id="fabric" value="C 1602 - M (8116-1622)" /></label>
+          <label><span>Fabric Profiles</span><input id="fabricProfiles" value="RAL 1013" /></label>
+          <label><span>Motor</span><input id="motor" value="RISING MOTOR" /></label>
+          <label><span>Remote</span><input id="remote" value="RISING 6 CHANNELS" /></label>
+          <label><span>LED</span><input id="led" value="YES" /></label>
+          <label><span>Dimmer</span><input id="dimmer" value="NO" /></label>
+          <label class="span-two"><span>Extras / Notes</span><textarea id="extras" rows="3">THE MOTOR IS ON RIGHT</textarea></label>
         </fieldset>
 
         <fieldset>
           <legend>Ek Opsiyonlar</legend>
           <label><span>Üçgen Doğrama</span><select id="triangleJoinery"><option>HAYIR</option><option>EVET</option></select></label>
           <label><span>Su Çıkışı Standart mı?</span><select id="waterStandard"><option>EVET</option><option>HAYIR</option></select></label>
-          <div class="info-box">
-            Bu <strong>V8.2 PERI01 Sayfa1 sürümü</strong> ray/dikme otomatik hesabını ve çoklu ray sayısı girişini PERI01 makro mantığına göre işler. Genişlik, açılım, arka yükseklik ve ray sayısında ; kullanımı ve genişlikte NO ara boşluk modu desteklenir.
-          </div>
+          <div class="info-box">Ray sayısı boşsa otomatik hesaplanır. Çoklu poz ray girişi için <strong>3;2;4</strong>, NO ara boşluk modu için genişlikte <strong>3000;100;2500;NO</strong> yazılabilir.</div>
         </fieldset>
       </div>
 
@@ -99,32 +83,25 @@
 
     <aside class="panel preview-panel">
       <div class="preview-head">
-        <div>
-          <h2>Çizim Önizleme</h2>
-          <p id="statusText">Ölçüleri girince önizleme otomatik güncellenir.</p>
-        </div>
+        <div><h2>Çizim Önizleme</h2><p id="statusText">Hazır.</p></div>
         <span class="pill">mm · DXF</span>
       </div>
-      <div id="preview" class="preview-canvas" role="img" aria-label="DXF çizim önizlemesi"></div>
+      <div id="preview" class="preview-canvas"></div>
       <details class="notes" open>
-        <summary>Bu deneme sürümünde çizilenler</summary>
-        <p>Üst görünüş, ön görünüş, yan görünüş, raylar, dikmeler, oluk, duvar/parapet, temel ölçülendirme ve proje bilgi tablosu.</p>
+        <summary>Notlar</summary>
+        <p>Üst görünüşte oluk profili ve üst bağlantı blokları çizilmez. Ön görünüşte oluk bloğu ve başlık yazısı çizilmez. Yan görünüşte çatı kayıt profili bloğu, çekici araba setleri ve görünüş yazıları çizilmez.</p>
       </details>
     </aside>
   </main>
 
   <dialog id="calculatorDialog" class="modal">
     <form method="dialog" class="modal-card">
-      <div class="modal-head">
-        <h2>Pülümür Hesaplayıcı</h2>
-        <button value="cancel" class="icon-btn" aria-label="Kapat">×</button>
-      </div>
-      <p class="modal-sub">4 satırdan herhangi 3 tanesini doldur. Boş olan değer hesaplanır.</p>
+      <div class="modal-head"><h2>Pülümür Hesaplayıcı</h2><button value="cancel" class="icon-btn" aria-label="Kapat">×</button></div>
       <div class="calc-grid">
-        <label><span>Sistem Açısı (°)</span><input id="calcAngle" type="text" placeholder="Örn. 4.16 veya boş" /></label>
-        <label><span>Açılım (mm)</span><input id="calcOpening" type="text" placeholder="Örn. 4500;5200 veya boş" /></label>
-        <label><span>Arka Yükseklik (mm)</span><input id="calcRear" type="text" placeholder="Örn. 3200;3400 veya boş" /></label>
-        <label><span>Ön Yükseklik (mm)</span><input id="calcFront" type="text" placeholder="Örn. 2600 veya boş" /></label>
+        <label><span>Sistem Açısı (°)</span><input id="calcAngle" type="text" /></label>
+        <label><span>Açılım (mm)</span><input id="calcOpening" type="text" /></label>
+        <label><span>Arka Yükseklik (mm)</span><input id="calcRear" type="text" /></label>
+        <label><span>Ön Yükseklik (mm)</span><input id="calcFront" type="text" /></label>
       </div>
       <div id="calcResult" class="calc-result">Sonuç bekleniyor.</div>
       <div class="modal-actions">
@@ -135,24 +112,18 @@
     </form>
   </dialog>
 
-
   <dialog id="helpDialog" class="modal help-modal">
     <form method="dialog" class="modal-card help-card">
-      <div class="modal-head">
-        <h2>Yardım / Kullanım Kılavuzu</h2>
-        <button value="cancel" class="icon-btn" aria-label="Kapat">×</button>
-      </div>
-      <pre id="helpContent" class="help-content">Yükleniyor...</pre>
-      <div class="modal-actions">
-        <button value="cancel" type="submit" class="primary-btn">Kapat</button>
-      </div>
+      <div class="modal-head"><h2>Yardım / Kullanım Kılavuzu</h2><button value="cancel" class="icon-btn" aria-label="Kapat">×</button></div>
+      <pre id="helpContent" class="help-content"></pre>
+      <div class="modal-actions"><button value="cancel" type="submit" class="primary-btn">Kapat</button></div>
     </form>
   </dialog>
 
-  <script src="blocks/filteredBlocks.js?v=8.2"></script>
-  <script src="peri01ExcelBridge.js?v=8.2"></script>
-  <script src="peri01Geometry.js?v=8.2"></script>
-  <script src="dxfEngine.js?v=8.2"></script>
-  <script src="app.js?v=8.2"></script>
+  <script src="blocks/filteredBlocks.js?v=8.3"></script>
+  <script src="peri01ExcelBridge.js?v=8.3"></script>
+  <script src="peri01Geometry.js?v=8.3"></script>
+  <script src="dxfEngine.js?v=8.3"></script>
+  <script src="app.js?v=8.3"></script>
 </body>
 </html>

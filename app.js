@@ -1,254 +1,36 @@
-(function () {
-  'use strict';
-
-  const ids = [
-    'product', 'moduleName', 'engine', 'customer', 'project', 'version', 'drawnBy', 'date',
-    'systemCount', 'width', 'opening', 'rearHeight', 'frontHeight', 'rayCount', 'postCount',
-    'parapet', 'parapetHeight', 'glassTrack', 'structureColor', 'fabric', 'fabricProfiles',
-    'motor', 'remote', 'led', 'dimmer', 'extras', 'triangleJoinery', 'waterStandard'
-  ];
-
-  const $ = id => document.getElementById(id);
-  const statusText = $('statusText');
-  const preview = $('preview');
-  let lastDrawing = null;
-  let lastCalc = null;
-
-  function today() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  function fillInitial() {
-    const d = window.PulumurGeometry.SAMPLE_INPUT;
-    ids.forEach(id => {
-      if ($(id) && d[id] !== undefined) $(id).value = d[id];
-    });
-    $('date').value = today();
-    ['rayCount', 'postCount'].forEach(id => {
-      if ($(id)) $(id).dataset.userEdited = 'false';
-    });
-    applyAutoRayPost(true);
-  }
-
-  function applyAutoRayPost(force = false) {
-    const br = window.PulumurExcelBridge;
-    if (!br || typeof br.autoRayPostCount !== 'function') return;
-    const raw = collectForm();
-    const auto = br.autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight);
-    const rayEl = $('rayCount');
-    const postEl = $('postCount');
-    const rayWasManual = rayEl && rayEl.dataset.userEdited === 'true';
-    const postWasManual = postEl && postEl.dataset.userEdited === 'true';
-
-    if (rayEl && (force || !rayWasManual || String(rayEl.value || '').trim() === '')) {
-      rayEl.value = auto.rayText || '';
-      rayEl.dataset.userEdited = 'false';
+(function(){
+  const ids=['customer','project','version','drawnBy','date','systemCount','width','opening','rearHeight','frontHeight','rayCount','postCount','parapet','parapetHeight','glassTrack','sideTrack','structureColor','fabric','fabricProfiles','motor','remote','led','dimmer','extras','triangleJoinery','waterStandard'];
+  const $=id=>document.getElementById(id);
+  const today=new Date(); $('date').value = today.toISOString().slice(0,10);
+  function formData(){ const o={}; ids.forEach(id=>o[id]=$(id).value); return o; }
+  function refreshComputed(page1){ if(!$('rayCount').value.trim()) $('rayCount').placeholder = page1.rayCountsString || 'otomatik'; if(!$('postCount').value.trim()) $('postCount').placeholder = page1.totalPostsString; $('statusText').textContent=`Hazır: ${page1.page1Widths.join(' + ')} mm, ray ${page1.rayCountsString}, dikme ${page1.totalPostsString}`; }
+  function render(){
+    const page1=window.PLMRBridge.buildPage1Data(formData()); refreshComputed(page1);
+    const model=window.PLMRGeometry.buildModel(page1); const ex=model.extents; const pad=20; const w=Math.max(800, ex.maxX-ex.minX+pad*2); const h=Math.max(600, ex.maxY-ex.minY+pad*2);
+    let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">`;
+    svg+='<rect x="0" y="0" width="100%" height="100%" fill="#ffffff"/>';
+    const colorMap={3:'#16c05c',5:'#4169e1',6:'#ff00ff',7:'#111',8:'#777'};
+    for(const e of model.entities){
+      if(e.type==='line') svg+=`<line x1="${e.x1+pad}" y1="${e.y1+pad}" x2="${e.x2+pad}" y2="${e.y2+pad}" stroke="${colorMap[e.color]||'#111'}" stroke-width="2" />`;
+      else if(e.type==='rect') svg+=`<rect x="${e.x+pad}" y="${e.y+pad}" width="${e.w}" height="${e.h}" fill="none" stroke="${colorMap[e.color]||'#111'}" stroke-width="2" />`;
+      else if(e.type==='text') svg+=`<text class="svgtext" x="${e.x+pad}" y="${e.y+pad}" font-size="${e.h}" fill="${colorMap[e.color]||'#111'}">${String(e.value).replace(/&/g,'&amp;')}</text>`;
     }
-
-    const currentRayText = rayEl ? rayEl.value : auto.rayText;
-    const autoPost = br.postCountFromRayText ? br.postCountFromRayText(currentRayText, raw.systemCount, raw.width, raw.frontHeight) : auto.postCount;
-    if (postEl && (force || !postWasManual || String(postEl.value || '').trim() === '')) {
-      postEl.value = autoPost === '' || autoPost === null || autoPost === undefined ? '' : String(autoPost);
-      postEl.dataset.userEdited = 'false';
-    }
+    svg+='</svg>'; $('preview').innerHTML=svg; return {page1,model};
   }
-
-  function collectForm() {
-    return ids.reduce((acc, id) => {
-      const el = $(id);
-      if (!el) return acc;
-      acc[id] = el.value;
-      return acc;
-    }, {});
-  }
-
-  function firstNumber(value) {
-    const token = String(value ?? '').split(';').map(s => s.trim()).find(s => s && s.toLocaleUpperCase('tr-TR') !== 'NO');
-    const parsed = Number(String(token ?? '').replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function validateInput(d) {
-    const missing = [];
-    if (firstNumber(d.width) <= 0) missing.push('Genişlik');
-    if (firstNumber(d.opening) <= 0) missing.push('Açılım');
-    if (firstNumber(d.rearHeight) <= 0) missing.push('Arka yükseklik');
-    if (firstNumber(d.frontHeight) <= 0) missing.push('Ön yükseklik');
-    // Ray ve dikme sayısı Excel makrosundaki gibi otomatik hesaplanebilir.
-    if (missing.length) throw new Error(`${missing.join(', ')} alanlarını doldur.`);
-  }
-
-  function updatePreview() {
-    try {
-      applyAutoRayPost(false);
-      const data = collectForm();
-      validateInput(data);
-      const drawing = window.PulumurGeometry.buildDrawing(data);
-      lastDrawing = drawing;
-      preview.innerHTML = window.PulumurGeometry.renderSvg(drawing);
-      const d = drawing.input;
-      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}.`;
-      return drawing;
-    } catch (err) {
-      preview.innerHTML = '<div class="empty-state">Önizleme için zorunlu ölçüleri doldur.</div>';
-      statusText.textContent = err.message;
-      return null;
-    }
-  }
-
-  function downloadText(filename, text) {
-    const blob = new Blob([text], { type: 'application/dxf;charset=utf-8' });
-    if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
-      window.navigator.msSaveOrOpenBlob(blob, filename);
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.rel = 'noopener';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    window.setTimeout(() => {
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 1500);
-  }
-
-  function generateDxf() {
-    try {
-      const drawing = updatePreview();
-      if (!drawing) return;
-      if (!window.PulumurDXF || typeof window.PulumurDXF.toDxf !== 'function') {
-        throw new Error('DXF motoru yüklenemedi. GitHub’a dxfEngine.js ve blocks klasörünü yüklediğinden emin ol.');
-      }
-      const dxf = window.PulumurDXF.toDxf(drawing);
-      if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
-      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2-ray-post-cleanup-v${drawing.input.version}`);
-      downloadText(`${nameRoot}.dxf`, dxf);
-      statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
-    } catch (err) {
-      statusText.textContent = `DXF oluşturma hatası: ${err.message}`;
-      window.alert(`DXF oluşturma hatası:\n${err.message}`);
-      console.error(err);
-    }
-  }
-
-  function resetForm() {
-    fillInitial();
-    updatePreview();
-  }
-
-  function n(id) {
-    const value = $(id).value;
-    if (value === '') return null;
-    const parsed = Number(String(value).replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  function setValue(id, value, digits = 0) {
-    if (value === null || value === undefined || !Number.isFinite(value)) return;
-    $(id).value = Number(value).toFixed(digits).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
-  }
-
-  function calculateMissing() {
-    const angle = $('calcAngle').value;
-    const opening = $('calcOpening').value;
-    const rear = $('calcRear').value;
-    const front = $('calcFront').value;
-    try {
-      const br = window.PulumurExcelBridge;
-      const result = br.calculateSystem({ angle, opening, rear, front });
-      lastCalc = result;
-
-      const ids = ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'];
-      const targetId = ids[result.missingIndex];
-      $(targetId).value = result.resultText;
-      $('calcResult').textContent = `Sonuç (${result.pozSay} poz): ${result.resultText}`;
-      return result;
-    } catch (err) {
-      $('calcResult').textContent = err.message;
-      lastCalc = null;
-      return null;
-    }
-  }
-
-  function transferCalc() {
-    const result = lastCalc || calculateMissing();
-    if (!result) return;
-    const ids = ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'];
-    // Excel "Değerleri Hücrelere Aktar" davranışına web karşılığı:
-    // Açılım / Arka Yükseklik / Ön Yükseklik ana forma aktarılır.
-    if ($('calcOpening').value) $('opening').value = $('calcOpening').value;
-    if ($('calcRear').value) $('rearHeight').value = $('calcRear').value;
-    if ($('calcFront').value) $('frontHeight').value = $('calcFront').value;
-    updatePreview();
-    $('calculatorDialog').close();
-  }
-
-  function clearCalc() {
-    ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'].forEach(id => { $(id).value = ''; });
-    $('calcResult').textContent = 'Sonuç bekleniyor.';
-    lastCalc = null;
-  }
-
-  function openCalculator() {
-    $('calcOpening').value = $('opening').value || '';
-    $('calcRear').value = $('rearHeight').value || '';
-    $('calcFront').value = $('frontHeight').value || '';
-    $('calcAngle').value = '';
-    $('calcResult').textContent = 'Ana formdaki açılım / arka / ön değerleri aktarıldı. Açıyı hesaplamak için Hesapla’ya bas.';
-    $('calculatorDialog').showModal();
-  }
-
-  function showHelp() {
-    const dialog = $('helpDialog');
-    const box = $('helpContent');
-    if (dialog && box) {
-      box.textContent = window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.';
-      dialog.showModal();
-    } else {
-      alert(window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.');
-    }
-  }
-
-  function bindEvents() {
-    $('generateBtn').addEventListener('click', generateDxf);
-    $('previewBtn').addEventListener('click', updatePreview);
-    $('resetBtn').addEventListener('click', resetForm);
-    $('calcBtn').addEventListener('click', openCalculator);
-    $('helpBtn').addEventListener('click', showHelp);
-    $('calcComputeBtn').addEventListener('click', () => {
-      try { calculateMissing(); } catch (err) { $('calcResult').textContent = err.message; }
-    });
-    $('calcTransferBtn').addEventListener('click', () => {
-      try { transferCalc(); } catch (err) { $('calcResult').textContent = err.message; }
-    });
-    $('calcClearBtn').addEventListener('click', clearCalc);
-    ids.forEach(id => {
-      const el = $(id);
-      if (!el) return;
-      el.addEventListener('change', updatePreview);
-      el.addEventListener('input', () => {
-        if (id === 'rayCount' || id === 'postCount') {
-          el.dataset.userEdited = String(el.value || '').trim() ? 'true' : 'false';
-          if (id === 'rayCount' && $('postCount') && $('postCount').dataset.userEdited !== 'true') {
-            const raw = collectForm();
-            const br = window.PulumurExcelBridge;
-            if (br && br.postCountFromRayText) $('postCount').value = br.postCountFromRayText(el.value, raw.systemCount, raw.width, raw.frontHeight);
-          }
-        }
-        if (['systemCount', 'width', 'frontHeight'].includes(id)) {
-          applyAutoRayPost(false);
-        }
-        window.clearTimeout(el._previewTimer);
-        el._previewTimer = window.setTimeout(updatePreview, 350);
-      });
-    });
-  }
-
-  fillInitial();
-  bindEvents();
-  updatePreview();
+  function generate(){ try{ const {page1,model}=render(); const dxf=window.PLMRDXF.makeDxf(model); const stamp=(page1.project||'pergo-rise').replace(/[^a-z0-9_-]+/gi,'-'); window.PLMRDXF.download(`${stamp}-v8_3.dxf`, dxf); } catch(err){ alert('DXF oluşturma hatası: '+err.message); console.error(err); } }
+  $('previewBtn').addEventListener('click', render); $('generateBtn').addEventListener('click', generate); $('resetBtn').addEventListener('click', ()=>location.reload());
+  ids.forEach(id=>$(id).addEventListener('input', ()=>{ try{render();}catch(e){} })); ids.forEach(id=>$(id).addEventListener('change', ()=>{ try{render();}catch(e){} }));
+  $('helpBtn').addEventListener('click', ()=>{ $('helpContent').textContent = window.PLMRBridge.helpText; $('helpDialog').showModal(); });
+  $('calcBtn').addEventListener('click', ()=> $('calculatorDialog').showModal());
+  $('calcComputeBtn').addEventListener('click', ()=>{
+    const res = window.PLMRBridge.computeCalculator($('calcAngle').value,$('calcOpening').value,$('calcRear').value,$('calcFront').value);
+    $('calcResult').textContent = res.map((r,i)=>r.error?`Poz ${i+1}: ${r.error}`:`Poz ${i+1}: Açı=${r.a?.toFixed?.(2)??''} Açılım=${r.o?.toFixed?.(1)??''} Arka=${r.r?.toFixed?.(1)??''} Ön=${r.f?.toFixed?.(1)??''}`).join(' | ');
+    $('calcResult').dataset.results = JSON.stringify(res);
+  });
+  $('calcTransferBtn').addEventListener('click', ()=>{
+    const res = JSON.parse($('calcResult').dataset.results||'[]'); if(!res.length) return;
+    $('opening').value = res.map(r=>r.o!=null?Math.round(r.o):'').join(';'); $('rearHeight').value = res.map(r=>r.r!=null?Math.round(r.r):'').join(';'); $('frontHeight').value = res.map(r=>r.f!=null?Math.round(r.f):'').join(';'); render(); $('calculatorDialog').close();
+  });
+  $('calcClearBtn').addEventListener('click', ()=>{ ['calcAngle','calcOpening','calcRear','calcFront'].forEach(id=>$(id).value=''); $('calcResult').textContent='Sonuç bekleniyor.'; });
+  render();
 })();
