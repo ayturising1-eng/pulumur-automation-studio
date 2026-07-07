@@ -58,7 +58,7 @@
   function headerSection() {
     return [
       pair(0, 'SECTION'), pair(2, 'HEADER'),
-      pair(9, '$ACADVER'), pair(1, 'AC1015'),
+      pair(9, '$ACADVER'), pair(1, 'AC1009'),
       pair(9, '$INSBASE'), pair(10, 0), pair(20, 0), pair(30, 0),
       pair(9, '$EXTMIN'), pair(10, -10000), pair(20, -20000), pair(30, 0),
       pair(9, '$EXTMAX'), pair(10, 12000), pair(20, 6000), pair(30, 0),
@@ -163,20 +163,26 @@
 
 
   function mtextEntity(e) {
-    const value = cleanText(String(e.value || '').replace(/\\P/g, '\n')).replace(/\n/g, '\\P');
-    return [
-      pair(0, 'MTEXT'),
-      pair(8, cleanText(e.layer || 'TEXT')),
-      pair(62, layerColor(e.layer)),
-      pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
-      pair(40, fixed(e.height || 80)),
-      pair(41, fixed(e.width || 1000)),
-      pair(71, e.align === 'center' ? 2 : (e.align === 'right' ? 3 : 1)),
-      pair(72, 1),
-      pair(1, value),
-      pair(7, 'STANDARD'),
-      pair(50, fixed(e.rotation || 0))
-    ];
+    // R12/AC1009 güvenli çıktı: MTEXT yerine hücre içinde kırılmış satırları
+    // STANDARD + Arial.ttf TEXT olarak yazar. MTEXT ana motora ayrı testle eklenecek.
+    const raw = String(e.value || '').replace(/\\P/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = raw.split('\n').map(cleanText).filter(Boolean);
+    const out = [];
+    const h = Number(e.height || 80);
+    const spacing = Number(e.lineSpacing || 1.15);
+    lines.forEach((line, i) => {
+      out.push(...textEntity({
+        type: 'text',
+        x: e.x,
+        y: Number(e.y) - i * h * spacing,
+        height: h,
+        value: line,
+        layer: e.layer || 'TEXT',
+        align: e.align || 'left',
+        rotation: e.rotation || 0
+      }));
+    });
+    return out;
   }
 
 

@@ -66,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.4 - MIRROR MTEXT NO DIM - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.6 - TABLE MIRROR FRAME FIX - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -347,7 +347,7 @@
     if (e.type === 'polyline') return { ...e, points: (e.points || []).map(p => [mx(p[0]), p[1]]) };
     if (e.type === 'circle') return { ...e, x: mx(e.x) };
     if (e.type === 'text') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)) };
-    if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)), scaleX: Math.abs(Number(e.scaleX) || 1), mirrorX: !e.mirrorX };
+    if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(-(Number(e.rotation) || 0)), scaleX: Math.abs(Number(e.scaleX) || 1), mirrorX: !e.mirrorX };
     return { ...e };
   }
 
@@ -577,7 +577,7 @@
     rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'RAY'); rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'RAY');
     const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci); const rotDeg = normDeg(aci * 180 / Math.PI); blockRef(g, 'PergoRise Ray Kafası Yan Görünüş', kafa[0], kafa[1], 130, 90, 'BLOCKREF', rotDeg);
     // V8.2.1: Yan görünüşte çatı kayıt profili ve ray çekici araba setleri çizilmez.
-    const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci); g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
+    if (K.showDimensions !== false) { const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci); g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center'); }
     if (!yes(d.waterStandard)) { const basX = yanX - 35.5; const basY = yanUstY + 13.9; g.rect(basX, basY, 300, 70, 'WATER'); g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left'); }
     if (yes(d.triangleJoinery) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) { const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / (p.opening - K.slopeOpeningCorrection)); const AB = Math.max(1, p.opening - 150); const BC = 165 + 150 * slope; const rise = AB * slope; const AD = BC + rise; const baseX = duvarX + 75; const baseY = bagY + 600; g.poly([[baseX, baseY], [baseX + AB, baseY], [baseX + AB, baseY + BC], [baseX, baseY + AD]], true, 'GLASS'); const ara = Math.max(0, Math.floor((AB - 0.000001) / 2000)); for (let i = 1; i <= ara; i += 1) { const x = baseX + (AB * i / (ara + 1)); const t = (x - baseX) / AB; const yTop = baseY + AD - (AD - BC) * t; g.line(x, baseY, x, yTop, 'GLASS'); } g.text(baseX + AB / 2, baseY + AD + 150, 'ÜÇGEN DOĞRAMA', 80, 'GLASS', 'center'); }
     addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`); addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`);
@@ -691,6 +691,24 @@
     return d.frame;
   }
 
+
+  function adjustFrameToContent(d, entities) {
+    // PERI01 mantığı: dış çerçeve çizimi çevrelemeli; görünüşler tablo dışına taşmamalı.
+    const f = ensureFrame(d);
+    const viewEnts = (entities || []).filter(e => !['TABLE', 'TITLE'].includes(e.layer));
+    if (!viewEnts.length) return f;
+    const b = bounds(viewEnts);
+    const padX = 450;
+    const padTop = 650;
+    const padBottom = 450;
+    const minX = Math.min(f.x, b.minX - padX);
+    const maxX = Math.max(f.x + f.w, b.maxX + padX);
+    const topY = Math.max(f.y, b.maxY + padTop);
+    const bottomY = Math.min(f.bottomY, b.minY - padBottom);
+    d.frame = { x: minX, y: topY, w: maxX - minX, h: topY - bottomY, bottomY };
+    return d.frame;
+  }
+
   function pergoTextH(d) {
     const ranges = systemRanges(d);
     const minInner = Math.min(...ranges.map(r => Math.max(1, r.x2 - r.x1 - 2 * K.pergoTextOffset)));
@@ -701,7 +719,7 @@
     return String(s ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   }
 
-  function wrapTextForWidth(value, width, h, pad, factor = 0.62) {
+  function wrapTextForWidth(value, width, h, pad, factor = 0.95) {
     const usable = Math.max(h, width - 2 * pad);
     const maxChars = Math.max(1, Math.floor(usable / (h * factor)));
     const raw = repeatCharCountText(value).split('\n');
@@ -724,34 +742,48 @@
     return Math.max(1, ...repeatCharCountText(value).split('\n').map(x => x.length));
   }
 
-  function fitCellText(value, w, rowH, baseH, padX) {
-    // PERI01'e yakın dinamik yazı kuralı:
-    // 1) Metin hücre genişliğine göre kırılır.
-    // 2) Satırlar hücre yüksekliğine sığmıyorsa yazı yüksekliği kademeli düşürülür.
-    // 3) En düşük değere rağmen sığmıyorsa satır kırma artırılır; MTEXT içinde düzenlenebilir kalır.
+  function fitCellText(value, w, rowH, baseH, padX, options = {}) {
+    // PERI01 v99/v86 kuralı:
+    // - Yazı ilgili hücrenin iç genişliğini geçmez.
+    // - Üst tabloda gerekirse satır kırılır ve metin bloğu hücre içinde dikey ortalanır.
+    // - Alt antette satır kırmadan, yazı yüksekliği hücre genişliğine sığacak kadar düşürülür.
+    const mode = options.mode || 'upper';
+    const widthFactor = options.widthFactor || 0.95;
     let hh = Number(baseH) || 90;
-    const minH = Math.max(18, hh * 0.38);
-    let lines = wrapTextForWidth(value, w, hh, padX);
-    for (let step = 0; step < 18; step += 1) {
-      const lineStep = hh * 1.15;
-      const totalH = hh + Math.max(0, lines.length - 1) * lineStep;
-      if (totalH <= Math.max(1, rowH - 2 * padX)) break;
-      hh = Math.max(minH, hh * 0.90);
-      lines = wrapTextForWidth(value, w, hh, padX);
-      if (hh <= minH + 0.001) break;
+    const minH = Math.max(12, hh * 0.25);
+    const usable = Math.max(1, Number(w || 0) - 2 * Number(padX || 0));
+    const availH = Math.max(1, Number(rowH || 0) - 2 * Number(padX || 0));
+    const raw = repeatCharCountText(value);
+
+    if (mode === 'bottom') {
+      const explicit = raw.split('\n').map(x => x.trim()).filter(Boolean);
+      const n = Math.max(1, ...explicit.map(x => x.length), raw.replace(/\n/g, ' ').length);
+      hh = Math.min(hh, usable / (n * widthFactor));
+      hh = Math.min(hh, availH);
+      hh = Math.max(minH, hh);
+      return { h: hh, lines: [raw.replace(/\s+/g, ' ').trim() || '-'] };
+    }
+
+    let lines = wrapTextForWidth(raw, w, hh, padX, widthFactor);
+    for (let step = 0; step < 24; step += 1) {
+      const maxLine = Math.max(1, ...lines.map(x => String(x).length));
+      const widthH = usable / (maxLine * widthFactor);
+      const heightH = availH / (1 + 1.25 * Math.max(0, lines.length - 1));
+      const newH = Math.max(minH, Math.min(Number(baseH) || hh, hh, widthH, heightH));
+      if (Math.abs(newH - hh) < 0.001) break;
+      hh = newH;
+      lines = wrapTextForWidth(raw, w, hh, padX, widthFactor);
     }
     return { h: hh, lines };
   }
 
-  function drawCellLines(g, x, yTop, w, rowH, h, padX, value, layer = 'TEXT') {
-    const fit = fitCellText(value, w, rowH, h, padX);
-    const textY = yTop - padX * 0.35;
-    if (typeof g.mtext === 'function') {
-      g.mtext(x + padX, textY, fit.lines.join('\\P'), fit.h, Math.max(1, w - 2 * padX), layer, 'left', 0, 1.15);
-    } else {
-      const lineStep = fit.h * 1.15;
-      fit.lines.forEach((line, i) => g.text(x + padX, textY - i * lineStep, line, fit.h, layer, 'left'));
-    }
+  function drawCellLines(g, x, yTop, w, rowH, h, padX, value, layer = 'TEXT', mode = 'upper') {
+    const fit = fitCellText(value, w, rowH, h, padX, { mode });
+    const lineStep = fit.h * 1.25;
+    const blockH = fit.h + Math.max(0, fit.lines.length - 1) * lineStep;
+    // DXF TEXT baseline yaklaşık alt hizada davrandığı için +0.35h ile görsel merkezlenir.
+    const startY = yTop - (rowH - blockH) / 2 - fit.h * 0.35;
+    fit.lines.forEach((line, i) => g.text(x + padX, startY - i * lineStep, line, fit.h, layer, 'left'));
   }
 
   function upperTableStyle(d) {
@@ -887,7 +919,7 @@
     const row2Cells = [
       ['PROJECT', c1], [d.project, c2], ['DRAWN BY', c3], [d.drawnBy, c4]
     ];
-    const cellH = (val, w) => Math.max(st.rowH, st.txtY * 2 + st.txtH);
+    const cellH = (val, w) => Math.max(st.rowH, st.txtY * 2 + fitCellText(val, w, st.rowH, st.txtH, st.txtX, { mode: 'bottom' }).h);
     const row1H = Math.max(st.rowH, ...row1Cells.map(c => cellH(c[0], c[1])));
     const row2H = Math.max(st.rowH, ...row2Cells.map(c => cellH(c[0], c[1])));
     const totalH = row1H + row2H;
@@ -897,9 +929,7 @@
     g.line(x, y - row1H, x + frame.w, y - row1H, 'TITLE');
 
     const drawSingle = (x0, yTop, w, hRow, value) => {
-      const fit = fitCellText(value, w, hRow, st.txtH, st.txtX);
-      if (typeof g.mtext === 'function') g.mtext(x0 + st.txtX, yTop - st.txtX * 0.25, fit.lines.join('\\P'), fit.h, Math.max(1, w - 2 * st.txtX), 'TEXT', 'left', 0, 1.15);
-      else g.text(x0 + st.txtX, yTop - hRow / 2 + fit.h * 0.35, fit.lines.join(' '), fit.h, 'TEXT', 'left');
+      drawCellLines(g, x0, yTop, w, hRow, st.txtH, st.txtX, value, 'TEXT', 'bottom');
     };
     drawSingle(x, y, c1, row1H, 'CUSTOMER');
     drawSingle(ax1, y, c2, row1H, d.customer);
@@ -927,6 +957,7 @@
     drawTopView(g, d);
     drawFrontView(g, d);
     drawSideView(g, d);
+    adjustFrameToContent(d, g.entities);
     drawFrame(g, d);
     drawUpperOptionsTable(g, d);
     drawBottomTitleTable(g, d);

@@ -1,1 +1,1 @@
-v8.2.4 - mirror block definitions + no dimensions + table MTEXT fit
+V8.2.6 Stable Hotfix - AC1009 + styled TEXT fallback
