@@ -1,1 +1,1 @@
-V8.2.7 - dynamic table + dimensions + mirror y fix
+V8.2.11 - Left table first column width increased

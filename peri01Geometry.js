@@ -66,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.7 - DYNAMIC TABLE + DIM + MIRROR Y FIX - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.11 - STABLE TEXT + TOP TABLE 500 GAP - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -783,11 +783,16 @@
 
   function drawCellLines(g, x, yTop, w, rowH, h, padX, value, layer = 'TEXT', mode = 'upper') {
     const fit = fitCellText(value, w, rowH, h, padX, { mode });
-    const lineStep = fit.h * 1.22;
-    const blockH = fit.lines.length * lineStep;
-    // TEXT baseline farkı hesaba katılarak blok hücre içinde dikey ortalanır.
-    const startY = yTop - (rowH - blockH) / 2 - fit.h * 0.15;
-    fit.lines.forEach((line, i) => g.text(x + padX, startY - i * lineStep, line, fit.h, layer, 'left'));
+    const lineStep = fit.h * 1.18;
+    const textBlockH = fit.h + Math.max(0, fit.lines.length - 1) * lineStep;
+    const centerY = yTop - rowH / 2;
+    // PERI01 tablo mantığı: metin bloğu hücrenin düşey merkezine oturur.
+    // TEXT entity baseline verdiği için ilk satır baseline'ı optik merkeze göre ayarlanır.
+    const firstBaseline = centerY + textBlockH / 2 - fit.h * 0.72;
+    const textX = x + padX;
+    fit.lines.forEach((line, i) => {
+      g.text(textX, firstBaseline - i * lineStep, line, fit.h, layer, 'left');
+    });
   }
 
   function upperTableStyle(d) {
@@ -797,8 +802,8 @@
     const h = clamp(pergoTextH(d) * 0.34, 42, 78);
     return {
       rowH: Math.max(150, h * 2.25),
-      col1: 1300,
-      col2: 2100,
+      col1: 1550,
+      col2: 2050,
       txtX: Math.max(35, h * 0.55),
       txtY: Math.max(28, h * 0.45),
       txtH: h
@@ -837,9 +842,16 @@
 
     let col1 = st.col1;
     let col2 = st.col2;
-    // Tablo üst görünüş alanına taşmasın: genişlik sınırlı, metinler hücre içinde kırılır.
-    const tableMaxW = 3600;
+    // Üst tablo okunabilir kalmalı ve üst görünüşün soluna girmemeli.
+    // Kural: üst görünüşün sol sınırına kadar en az 500 birim boşluk bırakılır.
+    const topViewLeftLimitX = d.systemStartX - 500;
+    let tableMaxW = Math.min(3650, Math.max(2200, topViewLeftLimitX - tableX));
     const minCol2 = st.txtH * 8;
+    const minTotalW = col1 + minCol2;
+    if (tableMaxW < minTotalW) {
+      tableX = topViewLeftLimitX - minTotalW;
+      tableMaxW = minTotalW;
+    }
     if (col1 + col2 > tableMaxW) col2 = Math.max(minCol2, tableMaxW - col1);
 
     const rows = [
