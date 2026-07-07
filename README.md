@@ -1,27 +1,27 @@
-# Pülümür Automation Studio — V6.4 Block Definitions
+# Pülümür Automation Studio — V8 PERI01 Excel Bridge
 
-Bu sürüm tek poz Pergo Rise web DXF prototipidir.
+Bu sürümde PERI01 Excel + LISP akışındaki önemli detaylar web çekirdeğine taşındı.
 
-## V6.4 değişiklikleri
+## Ana değişiklikler
 
-- V6.2 Clean R12 motoru korunmuştur.
-- Ayrı DXF dosyalarından süzgeçten geçirilen dikme blokları `blocks/filteredBlocks.js` içine alınmıştır.
-- Bloklar DXF içinde gerçek `BLOCK` tanımı olarak yazılır.
-- Çizimde ilgili noktalara `INSERT` ile çağrılır.
-- Blok taban noktası: kaynak çizimin bounding-box merkezi, yani merkez bazlı yerleşim.
-- Kaynak DXF dosyaları değiştirilmemiştir.
+- Ana form değerleri doğrudan çizime gönderilmiyor; önce Excel'deki gizli **Sayfa1** mantığına çevriliyor.
+- Genişlik değeri Sayfa1!B1 üretim mantığıyla optimize ediliyor.
+- Otomatik ray sayısı / dikme sayısı hesaplama eklendi.
+- Pülümür Hesaplayıcı, Excel Module22 mantığıyla çoklu poz destekli hale getirildi.
+- Yardım içeriği, Excel formundaki kullanım kılavuzundan web yardım penceresine taşındı.
+- Üst opsiyon tablosu ve alt antet tablosu Sayfa1'deki I sütunu ölçülerini ve PERI01 LISP ölçekleme mantığını kullanıyor.
+- Bloklar V7.2'deki gibi paylaşımlı tek blok tanımı + INSERT mantığını koruyor.
+- Polyline sadeleştirme kapalı kalmıştır.
 
-## Dahil edilen bloklar
+## Not
 
-- PergoRise Dikme Alt Bağlantı Karşı Görünüş
-- PergoRise Dikme Oluk Bağlantı Üst Görünüş
-- PergoRise Dikme Oluk Bağlantı Yan Görünüş
-- PergoRise Dikme Üst Görünüş
-- PergoRise Dikme Alt Bağlantı Yan Görünüş
-- PergoRise Dikme Oluk Bağlantı Karşı Görünüş
+Bu sürüm birebirlik için altyapı sürümüdür. PERI01'in görsel çıktısına milim milim yaklaşmak için bundan sonra referans DXF/PDF karşılaştırması ile sabitler ayarlanacaktır.
 
-## Test dosyaları
 
-- `samples/pergo-rise-v6_4-block-definitions-test.dxf`
-- `blocks/FILTERED_BLOCKS_REPORT.md`
+## V8.1 UI / Download Fix
 
+- DXF Oluştur butonuna try/catch ve kullanıcıya görünen hata mesajı eklendi.
+- Genişlik, Açılım, Arka Yükseklik, Ön Yükseklik, Ray Sayısı, Dikme Sayısı ve Parapet Yüksekliği alanları serbest metin girişine alındı.
+- ; ve NO yazımı tarayıcı tarafından engellenmez.
+- Sayfa1 dönüşümünde ilk sayısal token okuma düzeltildi.
+- GitHub cache kırmak için script/css versiyonu 8.1 yapıldı.

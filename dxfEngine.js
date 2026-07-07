@@ -42,10 +42,15 @@
 
   function pair(code, value) { return `${code}\n${value}`; }
 
+  function append(out, arr) {
+    for (let i = 0; i < arr.length; i += 1) out.push(arr[i]);
+    return out;
+  }
+
   function fixed(value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return '0';
-    return Number(n.toFixed(4)).toString();
+    return Number(n.toFixed(3)).toString();
   }
 
   function layerColor(layer) { return COLOR[layer] ?? 7; }
@@ -174,6 +179,56 @@
     ];
   }
 
+  function localPointToInPlace(px, py, ins) {
+    const sx = Number(ins.scaleX || 1);
+    const sy = Number(ins.scaleY || 1);
+    const rot = Number(ins.rotation || 0) * Math.PI / 180;
+    const ca = Math.cos(rot);
+    const sa = Math.sin(rot);
+    const x = Number(px) * sx;
+    const y = Number(py) * sy;
+    return [x * ca - y * sa, x * sa + y * ca];
+  }
+
+  function blockEntityToInPlace(entity, ins) {
+    const layer = entity.layer || 'BLOCK';
+    if (entity.type === 'line') {
+      const p1 = localPointToInPlace(entity.x1, entity.y1, ins);
+      const p2 = localPointToInPlace(entity.x2, entity.y2, ins);
+      return { type: 'line', layer, x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] };
+    }
+    if (entity.type === 'polyline') {
+      return {
+        type: 'polyline',
+        layer,
+        closed: !!entity.closed,
+        points: (entity.points || []).map(p => localPointToInPlace(p[0], p[1], ins))
+      };
+    }
+    if (entity.type === 'circle') {
+      const p = localPointToInPlace(entity.x, entity.y, ins);
+      const s = (Math.abs(Number(ins.scaleX || 1)) + Math.abs(Number(ins.scaleY || 1))) / 2;
+      return { type: 'circle', layer, x: p[0], y: p[1], r: Math.abs(Number(entity.r || 0)) * s };
+    }
+    return null;
+  }
+
+  function isHeavyDisabledBlockName(name) {
+    return ['Duvar Tarama Block', 'Trapez Tarama', 'RISING LOGO'].includes(String(name || ''));
+  }
+
+  function collectSharedBlocks(drawing, sourceBlocks) {
+    const used = {};
+    (drawing.entities || []).forEach(e => {
+      if (e.type === 'insert' && sourceBlocks[e.name]) {
+        const src = sourceBlocks[e.name];
+        const name = src.dxfName || dxfName(e.name);
+        used[e.name] = { ...src, dxfName: name };
+      }
+    });
+    return used;
+  }
+
   function insertAsSafePreview(e) {
     const w = Math.max(20, Math.abs(e.previewW || 120));
     const h = Math.max(20, Math.abs(e.previewH || 80));
@@ -215,7 +270,7 @@
         pair(3, name),
         pair(1, '')
       );
-      (block.entities || []).forEach(entity => out.push(...blockEntityOut(entity)));
+      (block.entities || []).forEach(entity => append(out, blockEntityOut(entity)));
       out.push(pair(0, 'ENDBLK'), pair(8, '0'));
     });
     out.push(pair(0, 'ENDSEC'));
@@ -229,22 +284,24 @@
   }
 
   function toDxf(drawing) {
-    const blocks = getBlocks(drawing);
+    const sourceBlocks = getBlocks(drawing);
+    const blocks = collectSharedBlocks(drawing, sourceBlocks);
     const layers = drawing.layers && drawing.layers.length ? drawing.layers : ['OUTLINE', 'TEXT'];
     const out = [];
-    out.push(...headerSection());
-    out.push(...tablesSection(layers));
-    out.push(...blocksSection(blocks));
+    append(out, headerSection());
+    append(out, tablesSection(layers));
+    append(out, blocksSection(blocks));
     out.push(pair(0, 'SECTION'), pair(2, 'ENTITIES'));
-    drawing.entities.forEach(e => {
-      if (e.type === 'line') out.push(...lineEntity(e));
-      else if (e.type === 'polyline') out.push(...polyEntity(e));
-      else if (e.type === 'circle') out.push(...circleEntity(e));
-      else if (e.type === 'text') out.push(...textEntity(e));
+    (drawing.entities || []).forEach(e => {
+      if (e.type === 'line') append(out, lineEntity(e));
+      else if (e.type === 'polyline') append(out, polyEntity(e));
+      else if (e.type === 'circle') append(out, circleEntity(e));
+      else if (e.type === 'text') append(out, textEntity(e));
       else if (e.type === 'insert') {
-        const block = blocks[e.name];
-        if (block) out.push(...insertEntity(e, block));
-        else out.push(...insertAsSafePreview(e));
+        if (isHeavyDisabledBlockName(e.name)) return;
+        const block = sourceBlocks[e.name];
+        if (block) append(out, insertEntity(e, block));
+        else append(out, insertAsSafePreview(e));
       }
     });
     out.push(pair(0, 'ENDSEC'));

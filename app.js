@@ -35,13 +35,19 @@
     }, {});
   }
 
+  function firstNumber(value) {
+    const token = String(value ?? '').split(';').map(s => s.trim()).find(s => s && s.toLocaleUpperCase('tr-TR') !== 'NO');
+    const parsed = Number(String(token ?? '').replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   function validateInput(d) {
     const missing = [];
-    if (!d.width || Number(d.width) <= 0) missing.push('Genişlik');
-    if (!d.opening || Number(d.opening) <= 0) missing.push('Açılım');
-    if (!d.rearHeight || Number(d.rearHeight) <= 0) missing.push('Arka yükseklik');
-    if (!d.frontHeight || Number(d.frontHeight) <= 0) missing.push('Ön yükseklik');
-    if (!d.rayCount || Number(d.rayCount) <= 0) missing.push('Ray sayısı');
+    if (firstNumber(d.width) <= 0) missing.push('Genişlik');
+    if (firstNumber(d.opening) <= 0) missing.push('Açılım');
+    if (firstNumber(d.rearHeight) <= 0) missing.push('Arka yükseklik');
+    if (firstNumber(d.frontHeight) <= 0) missing.push('Ön yükseklik');
+    // Ray ve dikme sayısı Excel makrosundaki gibi otomatik hesaplanebilir.
     if (missing.length) throw new Error(`${missing.join(', ')} alanlarını doldur.`);
   }
 
@@ -53,7 +59,7 @@
       lastDrawing = drawing;
       preview.innerHTML = window.PulumurGeometry.renderSvg(drawing);
       const d = drawing.input;
-      statusText.textContent = `Hazır: ${Math.round(d.width)} × ${Math.round(d.opening)} mm, ${d.rayCount} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}.`;
+      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}.`;
       return drawing;
     } catch (err) {
       preview.innerHTML = '<div class="empty-state">Önizleme için zorunlu ölçüleri doldur.</div>';
@@ -64,23 +70,41 @@
 
   function downloadText(filename, text) {
     const blob = new Blob([text], { type: 'application/dxf;charset=utf-8' });
+    if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+      window.navigator.msSaveOrOpenBlob(blob, filename);
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 1500);
   }
 
   function generateDxf() {
-    const drawing = updatePreview();
-    if (!drawing) return;
-    const dxf = window.PulumurDXF.toDxf(drawing);
-    const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v6-clean-r12-v${drawing.input.version}`);
-    downloadText(`${nameRoot}.dxf`, dxf);
-    statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
+    try {
+      const drawing = updatePreview();
+      if (!drawing) return;
+      if (!window.PulumurDXF || typeof window.PulumurDXF.toDxf !== 'function') {
+        throw new Error('DXF motoru yüklenemedi. GitHub’a dxfEngine.js ve blocks klasörünü yüklediğinden emin ol.');
+      }
+      const dxf = window.PulumurDXF.toDxf(drawing);
+      if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
+      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_1-peri01-excel-bridge-v${drawing.input.version}`);
+      downloadText(`${nameRoot}.dxf`, dxf);
+      statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
+    } catch (err) {
+      statusText.textContent = `DXF oluşturma hatası: ${err.message}`;
+      window.alert(`DXF oluşturma hatası:\n${err.message}`);
+      console.error(err);
+    }
   }
 
   function resetForm() {
@@ -101,62 +125,36 @@
   }
 
   function calculateMissing() {
-    const angle = n('calcAngle');
-    const opening = n('calcOpening');
-    const rear = n('calcRear');
-    const front = n('calcFront');
-    const values = [angle, opening, rear, front];
-    const filled = values.filter(v => v !== null).length;
-    if (filled !== 3) {
-      $('calcResult').textContent = 'Tam olarak 3 değer gir; boş bırakılan 4. değer PERI01 formülüyle hesaplanır.';
+    const angle = $('calcAngle').value;
+    const opening = $('calcOpening').value;
+    const rear = $('calcRear').value;
+    const front = $('calcFront').value;
+    try {
+      const br = window.PulumurExcelBridge;
+      const result = br.calculateSystem({ angle, opening, rear, front });
+      lastCalc = result;
+
+      const ids = ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'];
+      const targetId = ids[result.missingIndex];
+      $(targetId).value = result.resultText;
+      $('calcResult').textContent = `Sonuç (${result.pozSay} poz): ${result.resultText}`;
+      return result;
+    } catch (err) {
+      $('calcResult').textContent = err.message;
       lastCalc = null;
       return null;
     }
-
-    // Excel makrosundaki Pülümür Hesaplayıcı mantığı:
-    // Sistem açısı = ATAN((Arka - Ön - 278) / (Açılım - 71.1))
-    // Bu değer, PERI01 yan görünüş ray açısı hesabıyla aynı sabitleri kullanır.
-    const OPENING_CORRECTION = 71.1;
-    const HEIGHT_CORRECTION = 278;
-    const toRad = deg => deg * Math.PI / 180;
-    const toDeg = rad => rad * 180 / Math.PI;
-
-    let result = { angle, opening, rear, front };
-    if (angle === null) {
-      if (Math.abs(opening - OPENING_CORRECTION) < 1e-9) throw new Error('Açılım 71.1 mm olamaz. Formülde bölme hatası oluşur.');
-      result.angle = toDeg(Math.atan((rear - front - HEIGHT_CORRECTION) / (opening - OPENING_CORRECTION)));
-    } else if (opening === null) {
-      const t = Math.tan(toRad(angle));
-      if (Math.abs(t) < 1e-9) throw new Error('Sistem açısı 0° ise açılım hesaplanamaz.');
-      result.opening = ((rear - front - HEIGHT_CORRECTION) / t) + OPENING_CORRECTION;
-    } else if (rear === null) {
-      result.rear = front + HEIGHT_CORRECTION + (opening - OPENING_CORRECTION) * Math.tan(toRad(angle));
-    } else if (front === null) {
-      result.front = rear - HEIGHT_CORRECTION - (opening - OPENING_CORRECTION) * Math.tan(toRad(angle));
-    }
-
-    if (![result.angle, result.opening, result.rear, result.front].every(Number.isFinite)) {
-      throw new Error('Hesap sonucu geçersiz. Değerleri kontrol et.');
-    }
-    if (result.opening <= 0 || result.rear <= 0 || result.front <= 0) {
-      throw new Error('Hesap sonucu negatif veya sıfır çıktı. Değerleri kontrol et.');
-    }
-
-    lastCalc = result;
-    setValue('calcAngle', result.angle, 3);
-    setValue('calcOpening', result.opening, 0);
-    setValue('calcRear', result.rear, 0);
-    setValue('calcFront', result.front, 0);
-    $('calcResult').textContent = `Sonuç: açı ${result.angle.toFixed(3)}°, açılım ${Math.round(result.opening)} mm, arka ${Math.round(result.rear)} mm, ön ${Math.round(result.front)} mm.`;
-    return result;
   }
 
   function transferCalc() {
     const result = lastCalc || calculateMissing();
     if (!result) return;
-    setValue('opening', result.opening, 0);
-    setValue('rearHeight', result.rear, 0);
-    setValue('frontHeight', result.front, 0);
+    const ids = ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'];
+    // Excel "Değerleri Hücrelere Aktar" davranışına web karşılığı:
+    // Açılım / Arka Yükseklik / Ön Yükseklik ana forma aktarılır.
+    if ($('calcOpening').value) $('opening').value = $('calcOpening').value;
+    if ($('calcRear').value) $('rearHeight').value = $('calcRear').value;
+    if ($('calcFront').value) $('frontHeight').value = $('calcFront').value;
     updatePreview();
     $('calculatorDialog').close();
   }
@@ -177,7 +175,14 @@
   }
 
   function showHelp() {
-    alert('Pülümür Automation Studio Web DXF MVP\n\n1) Sistem ölçülerini gir.\n2) Önizlemeyi kontrol et.\n3) DXF Oluştur ve İndir butonuna bas.\n\nBu sürüm tek poz içindir. DWG blokların birebir aktarımı ve çoklu poz sonraki aşamadadır.');
+    const dialog = $('helpDialog');
+    const box = $('helpContent');
+    if (dialog && box) {
+      box.textContent = window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.';
+      dialog.showModal();
+    } else {
+      alert(window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.');
+    }
   }
 
   function bindEvents() {

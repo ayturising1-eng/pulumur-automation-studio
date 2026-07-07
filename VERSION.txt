@@ -1,1 +1,4 @@
-V6.4 - Clean R12 + filtered center-based BLOCK definitions
+Pulumur Automation Studio Web DXF V8.1
+- DXF button try/catch + download fix
+- System measurement inputs converted to free text for ; / NO entry
+- Front/post/parapet numeric parsing now uses first numeric token

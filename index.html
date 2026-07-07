@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pülümür Automation Studio</title>
-  <link rel="stylesheet" href="style.css?v=6.2" />
+  <link rel="stylesheet" href="style.css?v=8.1" />
 </head>
 <body>
   <header class="app-header">
@@ -12,7 +12,7 @@
       <div class="brand-mark">PLMR</div>
       <div>
         <h1>Pülümür Automation Studio</h1>
-        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V6.4 Blok Tanımlı R12</p>
+        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.1 · PERI01 Sayfa1 Akışı</p>
       </div>
     </div>
     <div class="top-actions">
@@ -56,19 +56,19 @@
 
         <fieldset>
           <legend>Sistem Ölçüleri</legend>
-          <label><span>Sistem Adedi</span><input id="systemCount" type="number" min="1" step="1" value="1" /></label>
-          <label><span>Genişlik <b>(mm)</b></span><input id="width" type="number" min="500" step="1" placeholder="Örn. 4000" /></label>
-          <label><span>Açılım <b>(mm)</b></span><input id="opening" type="number" min="500" step="1" placeholder="Örn. 4500" /></label>
-          <label><span>Arka Yükseklik <b>(mm)</b></span><input id="rearHeight" type="number" min="500" step="1" placeholder="Örn. 3000" /></label>
-          <label><span>Ön Yükseklik <b>(mm)</b> <em>Oluk Altı</em></span><input id="frontHeight" type="number" min="500" step="1" placeholder="Örn. 2500" /></label>
-          <label><span>Ray Sayısı <b>Bir Sistem</b></span><input id="rayCount" type="number" min="1" step="1" placeholder="Örn. 3" /></label>
-          <label><span>Dikme Sayısı <b>Tüm Sistem</b></span><input id="postCount" type="number" min="0" step="1" placeholder="Örn. 2" /></label>
+          <label><span>Sistem Adedi</span><input id="systemCount" type="text" inputmode="text" value="1" placeholder="Örn. 1" /></label>
+          <label><span>Genişlik <b>(mm)</b></span><input id="width" type="text" inputmode="text" placeholder="Örn. 4000 veya 3000;100;2500;NO" /></label>
+          <label><span>Açılım <b>(mm)</b></span><input id="opening" type="text" inputmode="text" placeholder="Örn. 6000 veya 4500;5200" /></label>
+          <label><span>Arka Yükseklik <b>(mm)</b></span><input id="rearHeight" type="text" inputmode="text" placeholder="Örn. 3200 veya 3200;3400" /></label>
+          <label><span>Ön Yükseklik <b>(mm)</b> <em>Oluk Altı</em></span><input id="frontHeight" type="text" inputmode="text" placeholder="Örn. 2600" /></label>
+          <label><span>Ray Sayısı <b>Bir Sistem</b></span><input id="rayCount" type="text" inputmode="text" placeholder="Örn. 2 veya 2;3;2" /></label>
+          <label><span>Dikme Sayısı <b>Tüm Sistem</b></span><input id="postCount" type="text" inputmode="text" placeholder="Örn. 2 veya boş: otomatik" /></label>
         </fieldset>
 
         <fieldset>
           <legend>Opsiyonlar</legend>
           <label><span>Parapet</span><select id="parapet"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Parapet Yüksekliği <b>(mm)</b></span><input id="parapetHeight" type="number" min="0" step="1" placeholder="-" /></label>
+          <label><span>Parapet Yüksekliği <b>(mm)</b></span><input id="parapetHeight" type="text" inputmode="text" placeholder="-" /></label>
           <label><span>Cam Kaydı</span><select id="glassTrack"><option>HAYIR</option><option>EVET</option></select></label>
           <label><span>Structure Color</span><input id="structureColor" placeholder="-" /></label>
           <label><span>Fabric</span><input id="fabric" placeholder="-" /></label>
@@ -85,7 +85,7 @@
           <label><span>Üçgen Doğrama</span><select id="triangleJoinery"><option>HAYIR</option><option>EVET</option></select></label>
           <label><span>Su Çıkışı Standart mı?</span><select id="waterStandard"><option>EVET</option><option>HAYIR</option></select></label>
           <div class="info-box">
-            Bu <strong>V6.4 Blok Tanımlı R12 sürümü</strong> tek poz çizimi içindir. Filtrelenen bloklar merkez bazlı BLOCK/INSERT olarak DXF içine yazılır.
+            Bu <strong>V8.1 PERI01 Sayfa1 sürümü</strong> ana form değerlerini önce Sayfa1 mantığına çevirir. Genişlik, açılım, arka yükseklik ve ray sayısında ; kullanımı ve genişlikte NO ara boşluk modu desteklenir.
           </div>
         </fieldset>
       </div>
@@ -121,10 +121,10 @@
       </div>
       <p class="modal-sub">4 satırdan herhangi 3 tanesini doldur. Boş olan değer hesaplanır.</p>
       <div class="calc-grid">
-        <label><span>Sistem Açısı (°)</span><input id="calcAngle" type="number" step="0.001" /></label>
-        <label><span>Açılım (mm)</span><input id="calcOpening" type="number" step="1" /></label>
-        <label><span>Arka Yükseklik (mm)</span><input id="calcRear" type="number" step="1" /></label>
-        <label><span>Ön Yükseklik (mm)</span><input id="calcFront" type="number" step="1" /></label>
+        <label><span>Sistem Açısı (°)</span><input id="calcAngle" type="text" placeholder="Örn. 4.16 veya boş" /></label>
+        <label><span>Açılım (mm)</span><input id="calcOpening" type="text" placeholder="Örn. 4500;5200 veya boş" /></label>
+        <label><span>Arka Yükseklik (mm)</span><input id="calcRear" type="text" placeholder="Örn. 3200;3400 veya boş" /></label>
+        <label><span>Ön Yükseklik (mm)</span><input id="calcFront" type="text" placeholder="Örn. 2600 veya boş" /></label>
       </div>
       <div id="calcResult" class="calc-result">Sonuç bekleniyor.</div>
       <div class="modal-actions">
@@ -135,9 +135,24 @@
     </form>
   </dialog>
 
-  <script src="blocks/filteredBlocks.js?v=6.4"></script>
-  <script src="peri01Geometry.js?v=6.4"></script>
-  <script src="dxfEngine.js?v=6.4"></script>
-  <script src="app.js?v=6.4"></script>
+
+  <dialog id="helpDialog" class="modal help-modal">
+    <form method="dialog" class="modal-card help-card">
+      <div class="modal-head">
+        <h2>Yardım / Kullanım Kılavuzu</h2>
+        <button value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <pre id="helpContent" class="help-content">Yükleniyor...</pre>
+      <div class="modal-actions">
+        <button value="cancel" type="submit" class="primary-btn">Kapat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="blocks/filteredBlocks.js?v=8.1"></script>
+  <script src="peri01ExcelBridge.js?v=8.1"></script>
+  <script src="peri01Geometry.js?v=8.1"></script>
+  <script src="dxfEngine.js?v=8.1"></script>
+  <script src="app.js?v=8.1"></script>
 </body>
 </html>
