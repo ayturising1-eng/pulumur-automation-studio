@@ -1,1 +1,1 @@
-v8.2.2 - top gutter block off + triangle table limit + side mirror
+v8.2.4 - mirror block definitions + no dimensions + table MTEXT fit
