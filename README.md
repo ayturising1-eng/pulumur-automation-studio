@@ -1,10 +1,7 @@
-# Pülümür Automation Studio V8.2.11
+# Pülümür Automation Studio V8.2.12
 
-V8.2.8 çalışan tabanı korunmuştur. Sadece sol üst opsiyon tablosunun 1. sütun genişliği artırılmıştır.
+V8.2.11 stabil TEXT tabanı korunmuştur.
 
-Değişiklik:
-- Üst opsiyon tablosu 1. sütun: 1300 → 1550
-- 2. sütun: 2100 → 2050
-- Toplam tablo maksimum genişliği: 3600 → 3650
+Bu sürümde sol üst opsiyon tablosu, üst görünüşün -X yönündeki en uç çizgisinden 500 birim sola kadar olan alana göre eş oranlı ölçeklenir. Tablo genişliği, satır yüksekliği, iç boşluklar ve yazı yüksekliği aynı katsayıyla büyür/küçülür.
 
-Amaç: `FABRIC PROFILES COLOR` yazısının dikey ayırıcı çizgiye binmesini ve 2. sütunla çakışmasını azaltmak.
+MTEXT tekrar açılmamıştır; güvenli AC1009/R12 DXF motoru korunmuştur.

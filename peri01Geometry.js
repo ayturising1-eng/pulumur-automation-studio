@@ -66,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.11 - STABLE TEXT + TOP TABLE 500 GAP - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.12 - PREVIEW TABLE SCALE + TOP 500 GAP - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -842,17 +842,24 @@
 
     let col1 = st.col1;
     let col2 = st.col2;
-    // Üst tablo okunabilir kalmalı ve üst görünüşün soluna girmemeli.
-    // Kural: üst görünüşün sol sınırına kadar en az 500 birim boşluk bırakılır.
-    const topViewLeftLimitX = d.systemStartX - 500;
-    let tableMaxW = Math.min(3650, Math.max(2200, topViewLeftLimitX - tableX));
-    const minCol2 = st.txtH * 8;
-    const minTotalW = col1 + minCol2;
-    if (tableMaxW < minTotalW) {
-      tableX = topViewLeftLimitX - minTotalW;
-      tableMaxW = minTotalW;
-    }
-    if (col1 + col2 > tableMaxW) col2 = Math.max(minCol2, tableMaxW - col1);
+
+    // V8.2.12: Önizlemede düzgün çalışan tablo mantığını DXF geometrisine de aynı uygula.
+    // Tablo, üst görünüşün -X yönündeki en uç çizgisine 500 birim kala biter.
+    // Yani sağ kenar: topViewLeftX - 500. Genişlik ve yükseklik aynı katsayıyla büyür/küçülür.
+    const topViewLeftX = Math.min(K.gutterX, d.systemStartX, d.rayAreaStartX || d.systemStartX);
+    const tableRightLimitX = topViewLeftX - 500;
+    const baseTableW = col1 + col2;
+    const availableW = Math.max(baseTableW, tableRightLimitX - tableX);
+    const tableScale = clamp(availableW / baseTableW, 0.72, 3.25);
+    col1 *= tableScale;
+    col2 *= tableScale;
+    const scaledSt = {
+      ...st,
+      rowH: st.rowH * tableScale,
+      txtX: st.txtX * tableScale,
+      txtY: st.txtY * tableScale,
+      txtH: st.txtH * tableScale
+    };
 
     const rows = [
       ['STRUCTURE COLOR', d.structureColor],
@@ -866,11 +873,11 @@
     ];
 
     let rowHeights = rows.map(row => {
-      const labLines = wrapTextForWidth(row[0], col1, st.txtH, st.txtX);
-      const valLines = wrapTextForWidth(row[1], col2, st.txtH, st.txtX);
+      const labLines = wrapTextForWidth(row[0], col1, scaledSt.txtH, scaledSt.txtX);
+      const valLines = wrapTextForWidth(row[1], col2, scaledSt.txtH, scaledSt.txtX);
       const lineCount = Math.max(labLines.length, valLines.length);
-      const need = 2 * st.txtY + (lineCount - 1) * st.txtH * 1.25 + st.txtH;
-      return Math.max(st.rowH, need);
+      const need = 2 * scaledSt.txtY + (lineCount - 1) * scaledSt.txtH * 1.25 + scaledSt.txtH;
+      return Math.max(scaledSt.rowH, need);
     });
     let tableH = rowHeights.reduce((a, b) => a + b, 0);
     const triLimitY = triangleTableLimitY(d);
@@ -879,7 +886,7 @@
     const tableLimitY = limitCandidates.length ? Math.max(...limitCandidates) : null;
     if (tableLimitY !== null) {
       const allowedH = tableY - tableLimitY;
-      if (allowedH > st.txtH && tableH > allowedH) {
+      if (allowedH > scaledSt.txtH && tableH > allowedH) {
         // PERI01 tablo sıkıştırma mantığı: tablo, sol yan görünüşün üst sınırına yaklaşırsa
         // satır yükseklikleri küçültülür. 0.22 altına inmiyoruz; okunurluk çok bozulursa
         // çerçeve büyütme sonraki revizyonda yapılır.
@@ -899,8 +906,8 @@
     }
     y = tableY;
     rows.forEach((row, i) => {
-      drawCellLines(g, tableX, y, col1, rowHeights[i], st.txtH, st.txtX, row[0]);
-      drawCellLines(g, tableX + col1, y, col2, rowHeights[i], st.txtH, st.txtX, row[1]);
+      drawCellLines(g, tableX, y, col1, rowHeights[i], scaledSt.txtH, scaledSt.txtX, row[0]);
+      drawCellLines(g, tableX + col1, y, col2, rowHeights[i], scaledSt.txtH, scaledSt.txtX, row[1]);
       y -= rowHeights[i];
     });
   }

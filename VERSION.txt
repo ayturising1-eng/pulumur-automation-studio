@@ -1,1 +1,1 @@
-V8.2.11 - Left table first column width increased
+V8.2.12 - Preview-like top table proportional scale + 500 unit top-view gap
