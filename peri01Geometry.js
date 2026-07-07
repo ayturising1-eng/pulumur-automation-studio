@@ -20,7 +20,7 @@
 
   // PERI01 LISP'ten web tabanına taşınan ana sabitler.
   const K = {
-    showDimensions: false,
+    showDimensions: true,
     systemStartX: 300,
     gutterX: 250,
     sideBaseX: -1450,
@@ -66,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.6 - TABLE MIRROR FRAME FIX - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.7 - DYNAMIC TABLE + DIM + MIRROR Y FIX - 07.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -368,6 +368,14 @@
   }
 
   function rangeMinYForPostLike(g, startIndex, endIndex) {
+    // PERI01 hizalama kuralı: ayna yan görünüşün kotu dikme gövdesinin -Y uç noktasına göre alınır.
+    // Alt bağlantı bloklarının base point / bbox farkı yaklaşık 46 mm yanıltma yapıyordu;
+    // bu yüzden önce sadece gerçek POST layer gövdeleri dikkate alınır.
+    const postVals = [];
+    for (let i = startIndex; i < endIndex; i += 1) {
+      if (g.entities[i] && g.entities[i].layer === 'POST') postVals.push(entityMinY(g.entities[i]));
+    }
+    if (postVals.length) return Math.min(...postVals);
     const vals = [];
     for (let i = startIndex; i < endIndex; i += 1) {
       if (entityIsPostLike(g.entities[i])) vals.push(entityMinY(g.entities[i]));
@@ -388,9 +396,11 @@
     for (let i = startIndex; i < endIndex; i += 1) moveEntityY(g.entities[i], dy);
   }
   function frontViewMinY(d) {
-    // PERI01: son poz sağ/ayna yan görünüşü, karşı görünüşün -Y uç hattına hizalanır.
-    // Karşı görünüşte alt bağlantı bloğu + dikme alt kotu yaklaşık bu referanstadır.
-    return d.commonFrontRectStartY - d.frontHeight + d.parapetHeight;
+    // PERI01: sağ/ayna yan görünüş, karşı görünüşteki gerçek dikme gövdesinin -Y uç hattına hizalanır.
+    // Ön görünüş dikme gövdesi: rectStartY - onPostTopDrop noktasından başlar,
+    // yüksekliği frontHeight - onPostHeightCorrection - parapetHeight kadardır.
+    // Bu nedenle alt uç = rectStartY - frontHeight + 46 + parapetHeight.
+    return d.commonFrontRectStartY - d.frontHeight + K.onPostHeightCorrection - K.onPostTopDrop + d.parapetHeight;
   }
 
 
@@ -743,96 +753,72 @@
   }
 
   function fitCellText(value, w, rowH, baseH, padX, options = {}) {
-    // PERI01 v99/v86 kuralı:
-    // - Yazı ilgili hücrenin iç genişliğini geçmez.
-    // - Üst tabloda gerekirse satır kırılır ve metin bloğu hücre içinde dikey ortalanır.
-    // - Alt antette satır kırmadan, yazı yüksekliği hücre genişliğine sığacak kadar düşürülür.
     const mode = options.mode || 'upper';
-    const widthFactor = options.widthFactor || 0.95;
-    let hh = Number(baseH) || 90;
-    const minH = Math.max(12, hh * 0.25);
+    const widthFactor = options.widthFactor || 0.72; // Arial yaklaşık karakter genişliği
+    const raw = repeatCharCountText(value).replace(/\n/g, '\n').trim() || '-';
     const usable = Math.max(1, Number(w || 0) - 2 * Number(padX || 0));
-    const availH = Math.max(1, Number(rowH || 0) - 2 * Number(padX || 0));
-    const raw = repeatCharCountText(value);
+    const usableH = Math.max(1, Number(rowH || 0) - 2 * Math.max(6, Number(padX || 0) * 0.35));
+    const base = Number(baseH) || 60;
+    const minH = Math.max(16, base * 0.34);
 
-    if (mode === 'bottom') {
-      const explicit = raw.split('\n').map(x => x.trim()).filter(Boolean);
-      const n = Math.max(1, ...explicit.map(x => x.length), raw.replace(/\n/g, ' ').length);
-      hh = Math.min(hh, usable / (n * widthFactor));
-      hh = Math.min(hh, availH);
-      hh = Math.max(minH, hh);
-      return { h: hh, lines: [raw.replace(/\s+/g, ' ').trim() || '-'] };
+    function wrapAtHeight(hh) {
+      if (mode === 'bottom') return [raw.replace(/\s+/g, ' ')];
+      return wrapTextForWidth(raw, usable + 2 * padX, hh, padX, widthFactor).filter(Boolean);
     }
 
-    let lines = wrapTextForWidth(raw, w, hh, padX, widthFactor);
-    for (let step = 0; step < 24; step += 1) {
+    let hh = base;
+    let lines = wrapAtHeight(hh);
+    for (let step = 0; step < 40; step += 1) {
       const maxLine = Math.max(1, ...lines.map(x => String(x).length));
-      const widthH = usable / (maxLine * widthFactor);
-      const heightH = availH / (1 + 1.25 * Math.max(0, lines.length - 1));
-      const newH = Math.max(minH, Math.min(Number(baseH) || hh, hh, widthH, heightH));
-      if (Math.abs(newH - hh) < 0.001) break;
-      hh = newH;
-      lines = wrapTextForWidth(raw, w, hh, padX, widthFactor);
+      const byWidth = usable / (maxLine * widthFactor);
+      const byHeight = usableH / Math.max(1, lines.length * 1.22);
+      const next = clamp(Math.min(base, byWidth, byHeight), minH, base);
+      if (Math.abs(next - hh) < 0.05) { hh = next; break; }
+      hh = next;
+      lines = wrapAtHeight(hh);
     }
+    if (mode === 'bottom') lines = [raw.replace(/\s+/g, ' ')];
     return { h: hh, lines };
   }
 
   function drawCellLines(g, x, yTop, w, rowH, h, padX, value, layer = 'TEXT', mode = 'upper') {
     const fit = fitCellText(value, w, rowH, h, padX, { mode });
-    const lineStep = fit.h * 1.25;
-    const blockH = fit.h + Math.max(0, fit.lines.length - 1) * lineStep;
-    // DXF TEXT baseline yaklaşık alt hizada davrandığı için +0.35h ile görsel merkezlenir.
-    const startY = yTop - (rowH - blockH) / 2 - fit.h * 0.35;
+    const lineStep = fit.h * 1.22;
+    const blockH = fit.lines.length * lineStep;
+    // TEXT baseline farkı hesaba katılarak blok hücre içinde dikey ortalanır.
+    const startY = yTop - (rowH - blockH) / 2 - fit.h * 0.15;
     fit.lines.forEach((line, i) => g.text(x + padX, startY - i * lineStep, line, fit.h, layer, 'left'));
   }
 
   function upperTableStyle(d) {
-    const lay = (d.sayfa1 && d.sayfa1.layout) || {};
-    const baseTxtH = Number(lay.tabloTxtH || 90);
-    const h = pergoTextH(d);
-    const s = baseTxtH > 0 ? h / baseTxtH : 1;
+    // PERI01 mantığına yakın tablo: yazı boyu PERGO RISE yazısıyla aynı oranda büyümez.
+    // Aksi halde büyük sistemlerde tablo yazıları hücre dışına taşar. Tablo solda sabit bir
+    // teknik bilgi bloğu gibi davranır; hücre içindeki metinler sığmazsa kırılır/küçülür.
+    const h = clamp(pergoTextH(d) * 0.34, 42, 78);
     return {
-      rowH: (lay.tabloRowH || 180) * s,
-      col1: (lay.tabloCol1W || 1150) * s,
-      col2: (lay.tabloCol2W || 1800) * s,
-      txtX: (lay.tabloTxtX || 60) * s,
-      txtY: (lay.tabloTxtY || 130) * s,
+      rowH: Math.max(150, h * 2.25),
+      col1: 1300,
+      col2: 2100,
+      txtX: Math.max(35, h * 0.55),
+      txtY: Math.max(28, h * 0.45),
       txtH: h
     };
   }
 
   function bottomTableStyle(d, frame) {
-    const lay = (d.sayfa1 && d.sayfa1.layout) || {};
-    const h = pergoTextH(d);
-    const baseTxtH = Number(lay.alttabloTxtH || 10.8);
-    let s = baseTxtH > 0 ? h / baseTxtH : 1;
-    let rowH = (lay.alttabloRowH || 10) * s;
-    let cols = [
-      lay.alttabloCol1W || 10,
-      lay.alttabloCol2W || 25,
-      lay.alttabloCol3W || 10,
-      lay.alttabloCol4W || 25,
-      lay.alttabloCol5W || 10,
-      lay.alttabloCol6W || 20
-    ].map(v => v * s);
-    let txtX = (lay.alttabloTxtX || 7.2) * s;
-    let txtY = (lay.alttabloTxtY || 15.6) * s;
-    let txtH = h;
-
-    // LISP v89: A3 çıktı ölçeğine göre alt tablo okunurluğu için ek katsayı.
-    const a3Long = 420, a3Short = 297, ref = 25;
-    const denomYan = Math.max(frame.w / a3Long, frame.h / a3Short);
-    const denomDik = Math.max(frame.w / a3Short, frame.h / a3Long);
-    const denom = Math.min(denomYan, denomDik);
-    let k = Math.max(1, Math.min(2.5, denom / ref));
-    if (k > 1) { rowH *= k; txtX *= k; txtY *= k; txtH *= k; }
-
-    const total = cols.reduce((a, b) => a + b, 0);
-    if (total > 0 && Math.abs(total - frame.w) > 0.001) {
-      const scale = frame.w / total;
-      cols = cols.map(c => c * scale);
-    }
-    return { rowH, cols, txtX, txtY, txtH };
+    // Alt antet için PERI01 benzeri dinamik kural:
+    // çerçeve genişliğine yayılır; yazı yüksekliği sabit üst limitlidir; hücreye sığmazsa küçülür.
+    const h = clamp(pergoTextH(d) * 0.30, 40, 78);
+    const base = [10, 25, 10, 25, 10, 20];
+    const sum = base.reduce((a,b)=>a+b,0);
+    const cols = base.map(v => frame.w * (v / sum));
+    return {
+      rowH: Math.max(165, h * 2.15),
+      cols,
+      txtX: Math.max(28, h * 0.48),
+      txtY: Math.max(22, h * 0.38),
+      txtH: h
+    };
   }
 
   function fitTextHSingleLine(value, w, h, pad) {
@@ -851,9 +837,10 @@
 
     let col1 = st.col1;
     let col2 = st.col2;
-    const tableMaxW = (-300) - tableX; // peri01UstTabloLimitX = 100 - 400
-    const minCol2 = st.txtH * 6;
-    if (tableMaxW > col1 + minCol2) col2 = tableMaxW - col1;
+    // Tablo üst görünüş alanına taşmasın: genişlik sınırlı, metinler hücre içinde kırılır.
+    const tableMaxW = 3600;
+    const minCol2 = st.txtH * 8;
+    if (col1 + col2 > tableMaxW) col2 = Math.max(minCol2, tableMaxW - col1);
 
     const rows = [
       ['STRUCTURE COLOR', d.structureColor],
@@ -884,7 +871,7 @@
         // PERI01 tablo sıkıştırma mantığı: tablo, sol yan görünüşün üst sınırına yaklaşırsa
         // satır yükseklikleri küçültülür. 0.22 altına inmiyoruz; okunurluk çok bozulursa
         // çerçeve büyütme sonraki revizyonda yapılır.
-        const k = Math.max(0.22, allowedH / tableH);
+        const k = Math.max(0.55, allowedH / tableH);
         rowHeights = rowHeights.map(h => h * k);
         tableH = rowHeights.reduce((a, b) => a + b, 0);
       }

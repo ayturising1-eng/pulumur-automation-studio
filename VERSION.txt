@@ -1,1 +1,1 @@
-V8.2.6 Stable Hotfix - AC1009 + styled TEXT fallback
+V8.2.7 - dynamic table + dimensions + mirror y fix
