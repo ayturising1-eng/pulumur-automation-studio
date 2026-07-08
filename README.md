@@ -1,6 +1,6 @@
 # Pülümür Automation Studio
 
-## v8.2.35
+## v8.2.36
 - Çoklu poz üst toplam ölçüsü, yan/cam kayıt profili çiziliyorsa poz 1 sol profil -X dış ucundan son poz sağ profil +X dış ucuna göre alınır.
 - Yan/cam kayıt yoksa v8.2.31 ray arka mekanizma bloğu uç sınırı korunur.
 

@@ -1482,6 +1482,16 @@
     return Math.max(minimum, (Number(value) || 1) * 0.85);
   }
 
+  function svgPointString(points, isClosed, sx, sy) {
+    const pts = Array.isArray(points) ? points.slice() : [];
+    if (isClosed && pts.length > 2) {
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      if (!last || first[0] !== last[0] || first[1] !== last[1]) pts.push(first);
+    }
+    return pts.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+  }
+
   function renderSvg(drawing) {
     const ents = drawing.entities;
     const blockLib = drawing.blocks || { ...getBlocks(), ...customHatchBlocks() };
@@ -1503,7 +1513,7 @@
       const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
       if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       else if (e.type === 'polyline') {
-        const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+        const points = svgPointString(e.points, e.closed, sx, sy);
         parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       } else if (e.type === 'text') {
         const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start');
@@ -1522,7 +1532,7 @@
           const gsw = previewStrokeWidth(gst.width || sw, 0.24);
           if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
           else if (ge.type === 'polyline') {
-            const points = ge.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+            const points = svgPointString(ge.points, ge.closed, sx, sy);
             parts.push(`<polyline points="${points}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
           } else if (ge.type === 'text') {
             const anchor = ge.align === 'center' ? 'middle' : (ge.align === 'right' ? 'end' : 'start');
@@ -1542,7 +1552,7 @@
               const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
               group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
             } else if (be.type === 'polyline') {
-              const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+              const points = svgPointString((be.points || []).map(p => transformLocalPoint(p[0], p[1], e)), be.closed, sx, sy);
               group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
             } else if (be.type === 'circle') {
               const p = transformLocalPoint(be.x, be.y, e);

@@ -268,7 +268,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_35-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_36-v${drawing.input.version}`);
   }
 
   function generateDxf() {
