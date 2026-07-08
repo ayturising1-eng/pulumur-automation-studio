@@ -10,6 +10,7 @@
     WALL: { stroke: '#6b7280', width: 4, dash: '18 12' },
     TOPWALL: { stroke: '#9ca3af', width: 4, dash: '18 12' },
     GLASS: { stroke: '#d946ef', width: 3 },
+    TRIANGLE: { stroke: '#00a36c', width: 3 },
     WATER: { stroke: '#1d4ed8', width: 3 },
     DIM: { stroke: '#be123c', width: 2 },
     TEXT: { stroke: '#0f172a', width: 1 },
@@ -66,7 +67,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.16 - INPUT WRAP SYNC - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.20 - PERI01 TRIANGLE FIX - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -330,6 +331,23 @@
   function addArrow(g, x, y, angle, size, layer) { g.line(x, y, x + Math.cos(angle + Math.PI * 0.84) * size, y + Math.sin(angle + Math.PI * 0.84) * size, layer); g.line(x, y, x + Math.cos(angle - Math.PI * 0.84) * size, y + Math.sin(angle - Math.PI * 0.84) * size, layer); }
   function addDimH(g, x1, x2, yRef, yDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(x1, yRef, x1, yDim, layer); g.line(x2, yRef, x2, yDim, layer); g.line(x1, yDim, x2, yDim, layer); addArrow(g, x1, yDim, 0, 70, layer); addArrow(g, x2, yDim, Math.PI, 70, layer); g.text((x1 + x2) / 2, yDim + 95, label, 85, layer, 'center'); }
   function addDimV(g, y1, y2, xRef, xDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(xRef, y1, xDim, y1, layer); g.line(xRef, y2, xDim, y2, layer); g.line(xDim, y1, xDim, y2, layer); addArrow(g, xDim, y1, Math.PI / 2, 70, layer); addArrow(g, xDim, y2, -Math.PI / 2, 70, layer); g.text(xDim - 120, (y1 + y2) / 2, label, 85, layer, 'center', 90); }
+  function addDimAligned(g, x1, y1, x2, y2, xLoc, yLoc, label) {
+    if (K.showDimensions === false) return;
+    const layer = 'DIM';
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const ux = dx / len, uy = dy / len;
+    const nx = -uy, ny = ux;
+    const off = ((xLoc - x1) * nx + (yLoc - y1) * ny);
+    const q1x = x1 + nx * off, q1y = y1 + ny * off;
+    const q2x = x2 + nx * off, q2y = y2 + ny * off;
+    g.line(x1, y1, q1x, q1y, layer);
+    g.line(x2, y2, q2x, q2y, layer);
+    g.line(q1x, q1y, q2x, q2y, layer);
+    addArrow(g, q1x, q1y, Math.atan2(uy, ux), 70, layer);
+    addArrow(g, q2x, q2y, Math.atan2(-uy, -ux), 70, layer);
+    g.text((q1x + q2x) / 2, (q1y + q2y) / 2 + 95, label, 85, layer, 'center', Math.atan2(dy, dx) * 180 / Math.PI);
+  }
   function rotatePoint(px, py, bx, by, ang) { const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang); return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca]; }
   function getBlocks() { return (root.PulumurFilteredBlocks && root.PulumurFilteredBlocks.blocks) ? root.PulumurFilteredBlocks.blocks : {}; }
   function transformLocalPoint(px, py, ins) {
@@ -583,6 +601,58 @@
 
   }
 
+  function triangleDogramaTopY(baseX, baseY, AD, slope, topOff, x) {
+    return baseY + AD - slope * (x - baseX) - topOff;
+  }
+
+  function triangleDogramaAraDikmeSay(AB) {
+    return Math.max(0, Math.floor((AB - 0.000001) / 2000));
+  }
+
+  function triangleDogramaKapaliCiz(g, pA, pB, pC, pD, layer = 'TRIANGLE') {
+    g.poly([pA, pB, pC, pD], true, layer);
+  }
+
+  function triangleDogramaUrunCiz(g, baseX, baseY, AB, BC, AD, slope, off = 41.7, memberW = 41.7) {
+    const topOff = off * Math.sqrt(1 + slope * slope);
+    const pA = [baseX, baseY];
+    const pB = [baseX + AB, baseY];
+    const pC = [baseX + AB, baseY + BC];
+    const pD = [baseX, baseY + AD];
+    triangleDogramaKapaliCiz(g, pA, pB, pC, pD);
+
+    if (AB > 2.5 * off) {
+      const inA = [baseX + off, baseY + off];
+      const inB = [baseX + AB - off, baseY + off];
+      const inC = [baseX + AB - off, triangleDogramaTopY(baseX, baseY, AD, slope, topOff, baseX + AB - off)];
+      const inD = [baseX + off, triangleDogramaTopY(baseX, baseY, AD, slope, topOff, baseX + off)];
+      triangleDogramaKapaliCiz(g, inA, inB, inC, inD);
+
+      const innerW = AB - 2 * off;
+      const n = triangleDogramaAraDikmeSay(AB);
+      if (n > 0) {
+        let clear = (innerW - n * memberW) / (n + 1);
+        if (clear < 1) clear = 1;
+        for (let k = 1; k <= n; k += 1) {
+          const xL = baseX + off + clear * k + memberW * (k - 1);
+          const xR = xL + memberW;
+          const yBot = baseY + off;
+          const yTopL = triangleDogramaTopY(baseX, baseY, AD, slope, topOff, xL);
+          const yTopR = triangleDogramaTopY(baseX, baseY, AD, slope, topOff, xR);
+          triangleDogramaKapaliCiz(g, [xL, yBot], [xR, yBot], [xR, yTopR], [xL, yTopL]);
+        }
+      }
+    }
+  }
+
+  function triangleDogramaDisOlcuCiz(g, baseX, baseY, AB, BC, AD) {
+    const dimOff = 300;
+    addDimH(g, baseX, baseX + AB, baseY, baseY - dimOff, formatMm(AB));
+    addDimV(g, baseY, baseY + BC, baseX + AB, baseX + AB + dimOff, formatMm(BC));
+    addDimV(g, baseY, baseY + AD, baseX, baseX - dimOff, formatMm(AD));
+    addDimAligned(g, baseX, baseY + AD, baseX + AB, baseY + BC, baseX + AB / 2, baseY + AD + dimOff, formatMm(Math.sqrt(AB * AB + Math.pow(AD - BC, 2))));
+  }
+
   function drawOneSideView(g, d, p, stackShiftY) {
     const rectStartY = -(p.opening + (p.rearHeight - d.frontHeight) + K.frontViewExtraDrop) + stackShiftY;
     const dikH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
@@ -611,7 +681,26 @@
     // V8.2.1: Yan görünüşte çatı kayıt profili ve ray çekici araba setleri çizilmez.
     if (K.showDimensions !== false) { const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci); g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center'); }
     if (!yes(d.waterStandard)) { const basX = yanX - 35.5; const basY = yanUstY + 13.9; g.rect(basX, basY, 300, 70, 'WATER'); g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left'); }
-    if (yes(d.triangleJoinery) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) { const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / (p.opening - K.slopeOpeningCorrection)); const AB = Math.max(1, p.opening - 150); const BC = 165 + 150 * slope; const rise = AB * slope; const AD = BC + rise; const baseX = duvarX + 75; const baseY = bagY + 600; g.poly([[baseX, baseY], [baseX + AB, baseY], [baseX + AB, baseY + BC], [baseX, baseY + AD]], true, 'GLASS'); const ara = Math.max(0, Math.floor((AB - 0.000001) / 2000)); for (let i = 1; i <= ara; i += 1) { const x = baseX + (AB * i / (ara + 1)); const t = (x - baseX) / AB; const yTop = baseY + AD - (AD - BC) * t; g.line(x, baseY, x, yTop, 'GLASS'); } g.text(baseX + AB / 2, baseY + AD + 150, 'ÜÇGEN DOĞRAMA', 80, 'GLASS', 'center'); }
+    p._triangleRange = null;
+    if (yes(d.triangleJoinery) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) {
+      const triStart = g.entities.length;
+      const denom = Math.abs(p.opening - K.slopeOpeningCorrection) < 1e-9 ? 1 : (p.opening - K.slopeOpeningCorrection);
+      const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / denom);
+      const AB = Math.max(1, p.opening - 150);
+      const BC = 165 + 150 * slope;
+      const AD = BC + AB * slope;
+      const off = 41.7;
+      const memberW = 41.7;
+      const aX = duvarX;
+      const aY = yanUstY - 3;
+      const copyX = duvarX;
+      const copyY = bagY + 600;
+      // PERI01: asil ürün yan kayıt/duvar referansından başlar; ikinci kopya duvardan +Y 600'e alınır.
+      triangleDogramaUrunCiz(g, aX, aY, AB, BC, AD, slope, off, memberW);
+      triangleDogramaUrunCiz(g, copyX, copyY, AB, BC, AD, slope, off, memberW);
+      triangleDogramaDisOlcuCiz(g, copyX, copyY, AB, BC, AD);
+      p._triangleRange = { start: triStart, end: g.entities.length };
+    }
     addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`); addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`);
   }
 
@@ -639,7 +728,7 @@
       const p = d.positions[i] || d.positions[0];
       const wallTopY = -p.opening - K.frontViewExtraDrop + shiftY;
       let topY = wallTopY;
-      const triangleVisible = yes(d.triangleJoinery) && (!d.farkliAcilim || i === 0 || i === d.sidePositionCount - 1);
+      const triangleVisible = yes(d.triangleJoinery) && (!d.farkliAcilim || i === 0);
       if (triangleVisible) {
         const denom = Math.abs(p.opening - K.slopeOpeningCorrection) < 1e-9 ? 1 : (p.opening - K.slopeOpeningCorrection);
         const slope = Math.abs((p.rearHeight - d.frontHeight - K.slopeHeightCorrection) / denom);
@@ -658,7 +747,7 @@
   function triangleTableLimitY(d) {
     if (!yes(d.triangleJoinery)) return null;
     const idxs = [];
-    for (let i = 0; i < d.sidePositionCount; i += 1) if (!d.farkliAcilim || i === 0 || i === d.sidePositionCount - 1) idxs.push(i);
+    for (let i = 0; i < d.sidePositionCount; i += 1) if (!d.farkliAcilim || i === 0) idxs.push(i);
     if (!idxs.length) return null;
     let best = null;
     let shiftY = 0;
@@ -690,15 +779,23 @@
       const p = { ...d.positions[i], index: i };
       const start = g.entities.length;
       drawOneSideView(g, d, p, shiftY);
-      const end = g.entities.length;
-      d.leftSideRanges.push({ start, end, index: i });
+      let end = g.entities.length;
+      const removeLeftTriangle = d.farkliAcilim && p.index === d.sidePositionCount - 1 && p._triangleRange && sideMirrorNeeded(d, p);
       if (sideMirrorNeeded(d, p)) {
         const midX = K.systemStartX + d.width / 2;
-        const mirrorStart = g.entities.length;
+        let mirrorStart = g.entities.length;
         mirrorNewEntitiesX(g, start, midX);
-        const mirrorEnd = g.entities.length;
+        let mirrorEnd = g.entities.length;
+        if (removeLeftTriangle) {
+          const removeCount = p._triangleRange.end - p._triangleRange.start;
+          g.entities.splice(p._triangleRange.start, removeCount);
+          end -= removeCount;
+          mirrorStart -= removeCount;
+          mirrorEnd -= removeCount;
+        }
         lastMirrorRange = { start: mirrorStart, end: mirrorEnd, index: p.index };
       }
+      d.leftSideRanges.push({ start, end, index: i });
       shiftY -= (p.opening + K.sideViewGapY);
     }
     // PERI01 v56/v75 kuralı: ayna yan görünüş, özellikle çoklu/farklı açılımda

@@ -10,6 +10,7 @@
     WALL: 8,
     TOPWALL: 8,
     GLASS: 6,
+    TRIANGLE: 130,
     WATER: 5,
     DIM: 1,
     TEXT: 7,
