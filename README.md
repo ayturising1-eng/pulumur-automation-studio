@@ -1,11 +1,8 @@
-# Pülümür Automation Studio V8.2.16
+# Pülümür Automation Studio v8.2.19
 
-V8.2.15 çalışan tabanı korunmuştur.
+PERGO RISE / PERGO RISE POZ yazı boyu hesabında güvenli boşluk 200 mm yerine 400 mm yapıldı.
 
-Bu sürümde değer giriş sayfasındaki üst tablo alanları, DXF üst tablo değer sütunu mantığıyla senkronize edilmiştir:
-
-- Üst tablo değer sütunu sanal kırılım limiti: 2130 birim
-- Üst tablo kolon ölçüsü: 1460 / 2140
-- Formdaki opsiyon değerleri textarea yapısına alındı.
-- Formdaki satır kırılımı DXF tablo kırılımı ile aynı karakter hesabını kullanır.
-- MTEXT yoktur; güvenli AC1009/R12 DXF motoru korunmuştur.
+Kural:
+- Sol sınır = ilk rayın iç kenarı + 400
+- Sağ sınır = son rayın iç kenarı - 400
+- Yazı boyu bu alana sığacak şekilde otomatik ayarlanır.

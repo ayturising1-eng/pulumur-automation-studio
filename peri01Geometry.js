@@ -527,15 +527,37 @@
     });
   }
 
-  function drawTopPergoText(g, d) {
-    const ranges = systemRanges(d);
-    const textY = -d.opening / 2;
-    const h = clamp(Math.min(...ranges.map(r => Math.max(1, r.x2 - r.x1 - 2 * K.pergoTextOffset))) / K.pergoTextRatio, K.pergoTextMinH, K.pergoTextMaxH);
-    if (d.systemCount > 1) {
-      ranges.forEach((r, i) => { const innerX1 = r.x1 + K.pergoTextOffset, innerX2 = r.x2 - K.pergoTextOffset; const x = innerX2 > innerX1 ? (innerX1 + innerX2) / 2 : r.mid; g.text(x, textY, `PERGO RISE\nPOZ ${i + 1}`, h, 'TITLE', 'center'); });
-    } else {
-      const r = ranges[0]; const innerX1 = r.x1 + K.pergoTextOffset, innerX2 = r.x2 - K.pergoTextOffset; const x = innerX2 > innerX1 ? (innerX1 + innerX2) / 2 : r.mid; g.text(x, textY, 'PERGO RISE', h, 'TITLE', 'center');
+  function pergoRiseTextFitForSystem(d, sys, label) {
+    // PERI01 kuralı: PERGO RISE yazısı, her pozda ilk ve son ray arasında kalır.
+    // İlk rayın iç kenarından +400, son rayın iç kenarından -400 boşluk bırakılır.
+    const rays = sys && sys.rays ? sys.rays : [];
+    let leftLimit = sys ? sys.startX + 400 : K.systemStartX + 400;
+    let rightLimit = sys ? sys.endX - 400 : K.systemStartX + d.width - 400;
+    if (rays.length >= 2) {
+      leftLimit = rays[0] + K.rayW + 400;
+      rightLimit = rays[rays.length - 1] - 400;
+    } else if (rays.length === 1) {
+      leftLimit = (sys ? sys.startX : rays[0]) + 400;
+      rightLimit = (sys ? sys.endX : rays[0] + K.rayW) - 400;
     }
+    if (rightLimit <= leftLimit) {
+      leftLimit = sys ? sys.startX + 80 : K.systemStartX;
+      rightLimit = sys ? sys.endX - 80 : K.systemStartX + d.width;
+    }
+    const available = Math.max(1, rightLimit - leftLimit);
+    // R12 TEXT çıktısında çoklu poz yazısı tek satır görünür; hesabı da o satıra göre yapıyoruz.
+    const textLen = Math.max(1, String(label || '').replace(/\s+/g, ' ').trim().length);
+    const height = clamp(available / (textLen * 0.68), 32, K.pergoTextMaxH);
+    return { x: (leftLimit + rightLimit) / 2, h: height };
+  }
+
+  function drawTopPergoText(g, d) {
+    const textY = -d.opening / 2;
+    d.systems.forEach((sys, i) => {
+      const label = d.systemCount > 1 ? `PERGO RISE POZ ${i + 1}` : 'PERGO RISE';
+      const fit = pergoRiseTextFitForSystem(d, sys, label);
+      g.text(fit.x, textY, label, fit.h, 'TITLE', 'center');
+    });
   }
 
   function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } }
@@ -661,12 +683,15 @@
 
   function drawSideView(g, d) {
     d.farkliAcilim = d.openingList.length > 1;
+    d.leftSideRanges = [];
     let shiftY = 0;
     let lastMirrorRange = null;
     for (let i = 0; i < d.sidePositionCount; i += 1) {
       const p = { ...d.positions[i], index: i };
       const start = g.entities.length;
       drawOneSideView(g, d, p, shiftY);
+      const end = g.entities.length;
+      d.leftSideRanges.push({ start, end, index: i });
       if (sideMirrorNeeded(d, p)) {
         const midX = K.systemStartX + d.width / 2;
         const mirrorStart = g.entities.length;
@@ -701,9 +726,52 @@
     return d.frame;
   }
 
+  function entityBoundsArray(e) {
+    if (!e) return [0, 0, 0, 0];
+    if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)];
+    if (e.type === 'text' || e.type === 'mtext') return [e.x, e.y - e.height, e.x + Math.max(1, String(e.value || '').length) * e.height * 0.65, e.y + e.height];
+    if (e.type === 'polyline') { const xs = e.points.map(p => p[0]), ys = e.points.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
+    if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r];
+    if (e.type === 'insert') {
+      const block = getBlocks()[e.name];
+      if (block) return transformBlockBounds(block, e);
+      const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80);
+      return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2];
+    }
+    return [0, 0, 0, 0];
+  }
+
+  function rangeBounds(entities, start, end) {
+    if (!Array.isArray(entities) || start == null || end == null || end <= start) return null;
+    let out = null;
+    for (let i = start; i < end; i += 1) {
+      const b = entityBoundsArray(entities[i]);
+      if (!out) out = { minX: b[0], minY: b[1], maxX: b[2], maxY: b[3] };
+      else {
+        out.minX = Math.min(out.minX, b[0]);
+        out.minY = Math.min(out.minY, b[1]);
+        out.maxX = Math.max(out.maxX, b[2]);
+        out.maxY = Math.max(out.maxY, b[3]);
+      }
+    }
+    return out;
+  }
+
+  function leftSideViewMinY(d, entities) {
+    const ranges = Array.isArray(d.leftSideRanges) ? d.leftSideRanges : [];
+    let minY = null;
+    ranges.forEach(r => {
+      const b = rangeBounds(entities, r.start, r.end);
+      if (b) minY = minY == null ? b.minY : Math.min(minY, b.minY);
+    });
+    return minY;
+  }
 
   function adjustFrameToContent(d, entities) {
     // PERI01 mantığı: dış çerçeve çizimi çevrelemeli; görünüşler tablo dışına taşmamalı.
+    // V8.2.17: Üçgen doğrama varken çerçevenin alt sınırı, alt tablonun üstü ile
+    // sol yan görünüşün (ölçüler dahil) en alt noktası arasında tam 800 mm boşluk
+    // bırakacak şekilde ayarlanır.
     const f = ensureFrame(d);
     const viewEnts = (entities || []).filter(e => !['TABLE', 'TITLE'].includes(e.layer));
     if (!viewEnts.length) return f;
@@ -714,7 +782,11 @@
     const minX = Math.min(f.x, b.minX - padX);
     const maxX = Math.max(f.x + f.w, b.maxX + padX);
     const topY = Math.max(f.y, b.maxY + padTop);
-    const bottomY = Math.min(f.bottomY, b.minY - padBottom);
+    let bottomY = Math.min(f.bottomY, b.minY - padBottom);
+    if (yes(d.triangleJoinery)) {
+      const sideMinY = leftSideViewMinY(d, entities);
+      if (Number.isFinite(sideMinY)) bottomY = sideMinY - 800;
+    }
     d.frame = { x: minX, y: topY, w: maxX - minX, h: topY - bottomY, bottomY };
     return d.frame;
   }
