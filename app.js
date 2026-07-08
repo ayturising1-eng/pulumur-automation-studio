@@ -150,7 +150,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_30-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_31-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -193,32 +193,89 @@ ${err.message}`);
     });
   }
 
-  function svgMarkupFromDrawing(drawing) {
-    return window.PulumurGeometry.renderSvg(drawing);
+  function hexToRgb(hex) {
+    const clean = String(hex || '#000000').replace('#', '').trim();
+    if (clean.length !== 6) return [0, 0, 0];
+    const value = Number.parseInt(clean, 16);
+    if (!Number.isFinite(value)) return [0, 0, 0];
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
   }
 
-  function loadSvgImage(svgText) {
-    return new Promise((resolve, reject) => {
-      const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('SVG önizlemesi görsele dönüştürülemedi.'));
-      };
-      img.src = url;
+  function pdfPageForBounds(box) {
+    const ratio = Math.max(0.1, Math.min(10, box.width / Math.max(1, box.height)));
+    const landscape = ratio >= 1;
+    const longMm = 420;
+    const shortMm = Math.max(297, Math.min(420, Math.round(longMm / Math.max(ratio, 1 / ratio))));
+    return landscape
+      ? { width: longMm, height: shortMm, orientation: 'landscape' }
+      : { width: shortMm, height: longMm, orientation: 'portrait' };
+  }
+
+  function setPdfStroke(pdf, ent, layerStyle, scale) {
+    const st = layerStyle[ent.layer] || layerStyle.OUTLINE || { stroke: '#000000', width: 2 };
+    const [r, g, b] = hexToRgb(st.stroke);
+    pdf.setDrawColor(r, g, b);
+    pdf.setTextColor(r, g, b);
+    const lw = Math.max(0.035, Math.min(0.45, (Number(st.width) || 2) * scale));
+    pdf.setLineWidth(lw);
+    if (st.dash && typeof pdf.setLineDashPattern === 'function') {
+      const dash = String(st.dash).split(/\s+/).map(Number).filter(Number.isFinite).map(v => Math.max(0.2, v * scale));
+      pdf.setLineDashPattern(dash.length ? dash : [], 0);
+    } else if (typeof pdf.setLineDashPattern === 'function') {
+      pdf.setLineDashPattern([], 0);
+    }
+  }
+
+  function writePdfText(pdf, ent, mx, my, scale) {
+    const raw = String(ent.value || '');
+    if (!raw) return;
+    const fontMm = Math.max(0.75, (Number(ent.height) || 100) * scale);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(fontMm * 72 / 25.4);
+    const align = ent.align === 'center' ? 'center' : (ent.align === 'right' ? 'right' : 'left');
+    const lines = ent.type === 'mtext' ? raw.split('\\P') : [raw];
+    lines.forEach((line, idx) => {
+      pdf.text(line, mx(ent.x), my(ent.y) + idx * fontMm * 1.15, {
+        align,
+        baseline: 'middle',
+        angle: -(Number(ent.rotation) || 0)
+      });
     });
   }
 
-  function parseViewBox(svgText) {
-    const match = String(svgText).match(/viewBox="([^"]+)"/i);
-    if (!match) return { width: 1000, height: 1000 };
-    const nums = match[1].trim().split(/\s+/).map(Number);
-    return { width: Math.max(1, nums[2] || 1000), height: Math.max(1, nums[3] || 1000) };
+  function drawVectorPdf(pdf, drawing, page, margin) {
+    const flat = window.PulumurGeometry.flattenDrawingForExport
+      ? window.PulumurGeometry.flattenDrawingForExport(drawing)
+      : { entities: drawing.entities || [], bounds: window.PulumurGeometry.bounds(drawing.entities || []), layerStyle: drawing.layerStyle || window.PulumurGeometry.LAYER_STYLE };
+    const box = flat.bounds;
+    const usableW = Math.max(1, page.width - margin * 2);
+    const usableH = Math.max(1, page.height - margin * 2);
+    const scale = Math.min(usableW / Math.max(1, box.width), usableH / Math.max(1, box.height));
+    const contentW = box.width * scale;
+    const contentH = box.height * scale;
+    const offsetX = (page.width - contentW) / 2 - box.minX * scale;
+    const offsetY = (page.height - contentH) / 2 + box.maxY * scale;
+    const mx = x => offsetX + x * scale;
+    const my = y => offsetY - y * scale;
+    const layerStyle = flat.layerStyle || window.PulumurGeometry.LAYER_STYLE;
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, page.width, page.height, 'F');
+    (flat.entities || []).forEach(ent => {
+      setPdfStroke(pdf, ent, layerStyle, scale);
+      if (ent.type === 'line') {
+        pdf.line(mx(ent.x1), my(ent.y1), mx(ent.x2), my(ent.y2));
+      } else if (ent.type === 'polyline') {
+        const pts = ent.points || [];
+        for (let i = 0; i < pts.length - 1; i += 1) pdf.line(mx(pts[i][0]), my(pts[i][1]), mx(pts[i + 1][0]), my(pts[i + 1][1]));
+        if (ent.closed && pts.length > 2) pdf.line(mx(pts[pts.length - 1][0]), my(pts[pts.length - 1][1]), mx(pts[0][0]), my(pts[0][1]));
+      } else if (ent.type === 'circle') {
+        pdf.circle(mx(ent.x), my(ent.y), Math.abs(ent.r) * scale, 'S');
+      } else if (ent.type === 'text' || ent.type === 'mtext') {
+        writePdfText(pdf, ent, mx, my, scale);
+      }
+    });
+    if (typeof pdf.setLineDashPattern === 'function') pdf.setLineDashPattern([], 0);
   }
 
   async function generatePdf() {
@@ -228,37 +285,19 @@ ${err.message}`);
       if (!drawing) return;
       const jsPDF = await ensureJsPdf();
       if (!jsPDF) throw new Error('PDF kütüphanesi aktif değil.');
-      const svgText = svgMarkupFromDrawing(drawing);
-      const box = parseViewBox(svgText);
-      const img = await loadSvgImage(svgText);
-      const longestPx = 4200;
-      const scale = longestPx / Math.max(box.width, box.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1400, Math.round(box.width * scale));
-      canvas.height = Math.max(1400, Math.round(box.height * scale));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('PDF için çizim yüzeyi oluşturulamadı.');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const imgData = canvas.toDataURL('image/png', 1.0);
-
-      const ratio = box.width / box.height;
-      const landscape = ratio >= 1;
-      const longMm = 420;
-      const shortMm = Math.max(297, Math.round(longMm / Math.max(ratio, 1 / ratio)));
-      const pageW = landscape ? longMm : shortMm;
-      const pageH = landscape ? shortMm : longMm;
-      const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: [pageH, pageW], compress: true });
-      pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST');
+      const flat = window.PulumurGeometry.flattenDrawingForExport
+        ? window.PulumurGeometry.flattenDrawingForExport(drawing)
+        : { bounds: window.PulumurGeometry.bounds(drawing.entities || []) };
+      const page = pdfPageForBounds(flat.bounds);
+      const pdf = new jsPDF({ orientation: page.orientation, unit: 'mm', format: [page.width, page.height], compress: true });
+      drawVectorPdf(pdf, drawing, page, 8);
       const blob = pdf.output('blob');
       const nameRoot = buildNameRoot(drawing);
       downloadBlob(`${nameRoot}.pdf`, blob);
       statusText.textContent = `PDF indirildi: ${nameRoot}.pdf`;
     } catch (err) {
       statusText.textContent = `PDF oluşturma hatası: ${err.message}`;
-      window.alert(`PDF oluşturma hatası:
-${err.message}`);
+      window.alert(`PDF oluşturma hatası:\n${err.message}`);
       console.error(err);
     } finally {
       preview.classList.remove('is-loading');

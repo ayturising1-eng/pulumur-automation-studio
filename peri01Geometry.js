@@ -764,13 +764,19 @@
     systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, gutterInnerY, topWidthDimY, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`));
     systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, gutterInnerY, topWidthDimY, `${formatMm(gap.x2 - gap.x1)}`));
 
-    // Çoklu poz toplam üst genişlik: 1. poz duvar sol dışı ile son poz duvar sağ dışı arası.
-    const firstSystem = d.systems[0];
-    const lastSystem = d.systems[d.systems.length - 1];
-    if (firstSystem && lastSystem) {
-      const totalWallX1 = firstSystem.startX - K.topWallInset;
-      const totalWallX2 = lastSystem.endX + K.topWallInset;
-      addDimH(g, totalWallX1, totalWallX2, 0, 800, `TOPLAM GENİŞLİK ${formatMm(totalWallX2 - totalWallX1)}`);
+    // Çoklu poz toplam üst genişlik:
+    // PERI01 yerleşiminde ray arka mekanizma blokları ray merkezinden +40 ile yerleşir.
+    // Bu ölçü, 1. poz 1. rayın arka mekanizma bloğu -X ucu ile son poz son rayın +X ucu arasındadır.
+    // Ölçü çizgisi tüm duvar çizimlerinin +Y yönündeki en uç noktasından +50 mm yukarı alınır; ;NO ara boşlukları korunur.
+    const ranges = systemRanges(d);
+    const firstRange = ranges[0];
+    const lastRange = ranges[ranges.length - 1];
+    if (firstRange && lastRange) {
+      const totalMeasureX1 = firstRange.x1;
+      const totalMeasureX2 = lastRange.x2;
+      const wallTopMaxY = Math.max(...d.systems.map(sys => Math.max(topWallYAt(d, sys.index), topWallYAt(d, sys.index) + topWallHAt(d, sys.index))));
+      const totalDimY = wallTopMaxY + 50;
+      addDimH(g, totalMeasureX1, totalMeasureX2, wallTopMaxY, totalDimY, `TOPLAM GENİŞLİK ${formatMm(totalMeasureX2 - totalMeasureX1)}`);
     }
   }
 
@@ -790,7 +796,9 @@
     });
     postXs.forEach(x => { blockRef(g, 'PergoRise Dikme Oluk Bağlantı Karşı Görünüş', x, rectStartY, 135, 85); g.rect(x - 50, rectStartY - K.onPostTopDrop, K.postSize, -onDikmeH, 'POST'); blockRef(g, 'PergoRise Dikme Alt Bağlantı Karşı Görünüş', x, altBlokY, 125, 70); });
     addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
-    addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
+    if (!(yes(d.parapet) && d.parapetHeight > 0)) {
+      addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
+    }
 
     // PERI01 LISP v32/v30 parapet mantığı:
     // Parapet varsa karşı görünüşte iki ek düşey ölçü çizilir.
@@ -1417,7 +1425,7 @@
     if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)];
     if (e.type === 'text') return [e.x, e.y, e.x + String(e.value || '').length * e.height * 0.55, e.y + e.height];
     if (e.type === 'mtext') {
-      const lines = String(e.value || '').split('\P');
+      const lines = String(e.value || '').split('\\P');
       const width = Number(e.width || 0);
       const height = (Number(e.height) || 0) * Math.max(1, lines.length) * 1.2;
       return [e.x, e.y - height, e.x + width, e.y];
@@ -1459,7 +1467,7 @@
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
         parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
       } else if (e.type === 'mtext') {
-        const lines = String(e.value || '').split('\P');
+        const lines = String(e.value || '').split('\\P');
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
         const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join('');
         parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`);
@@ -1511,7 +1519,54 @@
     return parts.join('\n');
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput };
+
+  function flattenDrawingForExport(drawing) {
+    const blockLib = drawing.blocks || { ...getBlocks(), ...customHatchBlocks() };
+    const out = [];
+    const push = e => out.push(e);
+    const expand = (e, inheritedLayer) => {
+      if (!e) return;
+      const layer = e.layer || inheritedLayer || 'OUTLINE';
+      if (e.type === 'dimension') {
+        (e.graphics || []).forEach(ge => expand(ge, layer));
+        return;
+      }
+      if (e.type === 'insert') {
+        const block = blockLib[e.name];
+        if (!block) {
+          const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80);
+          push({ type: 'polyline', layer, closed: true, points: [[e.x - w / 2, e.y - h / 2], [e.x + w / 2, e.y - h / 2], [e.x + w / 2, e.y + h / 2], [e.x - w / 2, e.y + h / 2]] });
+          return;
+        }
+        (block.entities || []).forEach(be => {
+          const beLayer = layer || be.layer || 'BLOCKREF';
+          if (be.type === 'line') {
+            const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
+            push({ type: 'line', layer: beLayer, x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] });
+          } else if (be.type === 'polyline') {
+            const pts = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e));
+            push({ type: 'polyline', layer: beLayer, closed: !!be.closed, points: pts });
+          } else if (be.type === 'circle') {
+            const p = transformLocalPoint(be.x, be.y, e);
+            const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2));
+            push({ type: 'circle', layer: beLayer, x: p[0], y: p[1], r: rr });
+          } else if (be.type === 'text' || be.type === 'mtext') {
+            const p = transformLocalPoint(be.x || 0, be.y || 0, e);
+            push({ ...be, layer: beLayer, x: p[0], y: p[1], height: Math.abs((Number(be.height) || 100) * ((Number(e.scaleX || 1) + Math.abs(Number(e.scaleY || 1))) / 2)), rotation: (Number(be.rotation || 0) + Number(e.rotation || 0)) });
+          }
+        });
+        return;
+      }
+      if (e.type === 'line') push({ type: 'line', layer, x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 });
+      else if (e.type === 'polyline') push({ type: 'polyline', layer, closed: !!e.closed, points: (e.points || []).map(p => [p[0], p[1]]) });
+      else if (e.type === 'circle') push({ type: 'circle', layer, x: e.x, y: e.y, r: e.r });
+      else if (e.type === 'text' || e.type === 'mtext') push({ ...e, layer });
+    };
+    (drawing.entities || []).forEach(e => expand(e));
+    return { entities: out, bounds: bounds(out), layerStyle: drawing.layerStyle || LAYER_STYLE };
+  }
+
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, flattenDrawingForExport, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

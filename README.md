@@ -8,3 +8,9 @@ Bu sürümde:
 - Yan görünüş ön yükseklik ölçüsü, parapet aktifken de toplam ön yüksekliği gösterecek şekilde PERI01 kot mantığına göre düzeltildi.
 - V8.2.27 çoklu poz üst genişlik ve toplam dıştan dışa genişlik ölçüleri korunmuştur.
 - V8.2.26 trapez tarama sınırı korunur: tarama her pozda ilk ray ile son ray arasında kalır.
+
+
+## v8.2.31
+- Parapetli karşı görünüş ölçüleri sadeleştirildi.
+- Çoklu poz toplam üst ölçüsü ray arka mekanizma blok uçlarına bağlandı.
+- PDF çıktısı vektörel çizim kalitesine yükseltildi.
