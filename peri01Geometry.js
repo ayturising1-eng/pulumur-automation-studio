@@ -66,7 +66,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.12 - PREVIEW TABLE SCALE + TOP 500 GAP - 07.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.16 - INPUT WRAP SYNC - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -802,8 +802,8 @@
     const h = clamp(pergoTextH(d) * 0.34, 42, 78);
     return {
       rowH: Math.max(150, h * 2.25),
-      col1: 1550,
-      col2: 2050,
+      col1: 1460,
+      col2: 2140,
       txtX: Math.max(35, h * 0.55),
       txtY: Math.max(28, h * 0.45),
       txtH: h
@@ -811,17 +811,19 @@
   }
 
   function bottomTableStyle(d, frame) {
-    // Alt antet için PERI01 benzeri dinamik kural:
-    // çerçeve genişliğine yayılır; yazı yüksekliği sabit üst limitlidir; hücreye sığmazsa küçülür.
-    const h = clamp(pergoTextH(d) * 0.30, 40, 78);
-    const base = [10, 25, 10, 25, 10, 20];
+    // V8.2.13: Alt tablo yazı boyu, üst tablonun ölçeklenmiş yazı boyuyla aynıdır.
+    // Hücre yükseklikleri ise bu yazı boyu sabit kalacak şekilde içerik satır sayısına göre büyür/küçülür.
+    const upper = upperTableScaledStyle(d);
+    const h = upper.txtH;
+    // V8.2.16: Kullanıcı tanımlı alt tablo kolon oranı.
+    const base = [13, 40, 10, 19, 7, 11];
     const sum = base.reduce((a,b)=>a+b,0);
     const cols = base.map(v => frame.w * (v / sum));
     return {
       rowH: Math.max(165, h * 2.15),
       cols,
-      txtX: Math.max(28, h * 0.48),
-      txtY: Math.max(22, h * 0.38),
+      txtX: upper.txtX,
+      txtY: upper.txtY,
       txtH: h
     };
   }
@@ -834,32 +836,79 @@
     return Math.max(minH, Math.min(h, fitH));
   }
 
+  function upperTableScaledStyle(d) {
+    const frame = ensureFrame(d);
+    const base = upperTableStyle(d);
+    const tableX = frame.x + 50;
+    const topViewLeftX = Math.min(K.gutterX, d.systemStartX, d.rayAreaStartX || d.systemStartX);
+    const tableRightLimitX = topViewLeftX - 500;
+    const baseTableW = base.col1 + base.col2;
+    const availableW = Math.max(baseTableW, tableRightLimitX - tableX);
+    const tableScale = clamp(availableW / baseTableW, 0.72, 3.25);
+    return {
+      ...base,
+      tableScale,
+      col1: base.col1 * tableScale,
+      col2: base.col2 * tableScale,
+      rowH: base.rowH * tableScale,
+      txtX: base.txtX * tableScale,
+      txtY: base.txtY * tableScale,
+      txtH: base.txtH * tableScale
+    };
+  }
+
+  function requiredWrappedCellHeight(value, w, st) {
+    const lines = wrapTextForWidth(value, w, st.txtH, st.txtX, 0.72).filter(Boolean);
+    const lineCount = Math.max(1, lines.length);
+    return Math.max(st.rowH, 2 * st.txtY + st.txtH + Math.max(0, lineCount - 1) * st.txtH * 1.18);
+  }
+
+  function upperTableValueWrapInfo(raw) {
+    const d = raw && raw.positions ? raw : normalizeInput(raw || SAMPLE_INPUT);
+    const base = upperTableStyle(d);
+    const scaled = upperTableScaledStyle(d);
+    // Form tarafında sanal değer sütunu 2130 kabul edilir. DXF tarafında tablo
+    // büyüse/küçülse bile yazı ve sütun aynı oranda ölçeklendiği için karakter
+    // kırılımı baz ölçüden hesaplanır.
+    const virtualMaxW = 2130;
+    const usable = Math.max(base.txtH, virtualMaxW - 2 * base.txtX);
+    const maxChars = Math.max(1, Math.floor(usable / (base.txtH * 0.72)));
+    return {
+      maxChars,
+      virtualMaxW,
+      col2: scaled.col2,
+      baseCol2: base.col2,
+      txtH: scaled.txtH,
+      baseTxtH: base.txtH,
+      txtX: scaled.txtX,
+      baseTxtX: base.txtX,
+      tableScale: scaled.tableScale
+    };
+  }
+
+  function wrapTextForUpperInput(value, raw) {
+    const info = upperTableValueWrapInfo(raw);
+    const rawText = String(value ?? '').replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!rawText) return '';
+    const out = [];
+    rawText.split(' ').filter(Boolean).forEach(word => {
+      const last = out[out.length - 1] || '';
+      if (!last) out.push(word);
+      else if ((last + ' ' + word).length <= info.maxChars) out[out.length - 1] = last + ' ' + word;
+      else out.push(word);
+    });
+    return out.join('\n');
+  }
+
   function drawUpperOptionsTable(g, d) {
     const frame = ensureFrame(d);
     const st = upperTableStyle(d);
     let tableX = frame.x + 50;
     let tableY = frame.y - 50;
 
-    let col1 = st.col1;
-    let col2 = st.col2;
-
-    // V8.2.12: Önizlemede düzgün çalışan tablo mantığını DXF geometrisine de aynı uygula.
-    // Tablo, üst görünüşün -X yönündeki en uç çizgisine 500 birim kala biter.
-    // Yani sağ kenar: topViewLeftX - 500. Genişlik ve yükseklik aynı katsayıyla büyür/küçülür.
-    const topViewLeftX = Math.min(K.gutterX, d.systemStartX, d.rayAreaStartX || d.systemStartX);
-    const tableRightLimitX = topViewLeftX - 500;
-    const baseTableW = col1 + col2;
-    const availableW = Math.max(baseTableW, tableRightLimitX - tableX);
-    const tableScale = clamp(availableW / baseTableW, 0.72, 3.25);
-    col1 *= tableScale;
-    col2 *= tableScale;
-    const scaledSt = {
-      ...st,
-      rowH: st.rowH * tableScale,
-      txtX: st.txtX * tableScale,
-      txtY: st.txtY * tableScale,
-      txtH: st.txtH * tableScale
-    };
+    const scaledSt = upperTableScaledStyle(d);
+    let col1 = scaledSt.col1;
+    let col2 = scaledSt.col2;
 
     const rows = [
       ['STRUCTURE COLOR', d.structureColor],
@@ -925,7 +974,7 @@
     const row2Cells = [
       ['PROJECT', c1], [d.project, c2], ['DRAWN BY', c3], [d.drawnBy, c4]
     ];
-    const cellH = (val, w) => Math.max(st.rowH, st.txtY * 2 + fitCellText(val, w, st.rowH, st.txtH, st.txtX, { mode: 'bottom' }).h);
+    const cellH = (val, w) => requiredWrappedCellHeight(val, w, st);
     const row1H = Math.max(st.rowH, ...row1Cells.map(c => cellH(c[0], c[1])));
     const row2H = Math.max(st.rowH, ...row2Cells.map(c => cellH(c[0], c[1])));
     const totalH = row1H + row2H;
@@ -935,7 +984,7 @@
     g.line(x, y - row1H, x + frame.w, y - row1H, 'TITLE');
 
     const drawSingle = (x0, yTop, w, hRow, value) => {
-      drawCellLines(g, x0, yTop, w, hRow, st.txtH, st.txtX, value, 'TEXT', 'bottom');
+      drawCellLines(g, x0, yTop, w, hRow, st.txtH, st.txtX, value, 'TEXT', 'upper');
     };
     drawSingle(x, y, c1, row1H, 'CUSTOMER');
     drawSingle(ax1, y, c2, row1H, d.customer);
@@ -994,7 +1043,7 @@
     parts.push('</svg>'); return parts.join('\n');
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

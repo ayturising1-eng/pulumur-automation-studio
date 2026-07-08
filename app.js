@@ -13,6 +13,8 @@
   const preview = $('preview');
   let lastDrawing = null;
   let lastCalc = null;
+  const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
+  let wrappingFields = false;
 
   function today() {
     return new Date().toISOString().slice(0, 10);
@@ -57,7 +59,10 @@
     return ids.reduce((acc, id) => {
       const el = $(id);
       if (!el) return acc;
-      acc[id] = el.value;
+      const value = el.value;
+      acc[id] = upperTableFieldIds.includes(id)
+        ? String(value || '').replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+        : value;
       return acc;
     }, {});
   }
@@ -78,12 +83,36 @@
     if (missing.length) throw new Error(`${missing.join(', ')} alanlarını doldur.`);
   }
 
+  function autosizeTextarea(el) {
+    if (!el || el.tagName !== 'TEXTAREA') return;
+    el.style.height = 'auto';
+    el.style.height = Math.max(42, el.scrollHeight) + 'px';
+  }
+
+  function syncUpperInputWrap(data) {
+    if (wrappingFields || !window.PulumurGeometry || typeof window.PulumurGeometry.wrapTextForUpperInput !== 'function') return;
+    wrappingFields = true;
+    try {
+      upperTableFieldIds.forEach(id => {
+        const el = $(id);
+        if (!el || el.tagName !== 'TEXTAREA') return;
+        const plain = String(el.value || '').replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        const wrapped = window.PulumurGeometry.wrapTextForUpperInput(plain, data);
+        if (el.value !== wrapped) el.value = wrapped;
+        autosizeTextarea(el);
+      });
+    } finally {
+      wrappingFields = false;
+    }
+  }
+
   function updatePreview() {
     try {
       applyAutoRayPost(false);
       const data = collectForm();
       validateInput(data);
       const drawing = window.PulumurGeometry.buildDrawing(data);
+      syncUpperInputWrap(data);
       lastDrawing = drawing;
       preview.innerHTML = window.PulumurGeometry.renderSvg(drawing);
       const d = drawing.input;
@@ -125,7 +154,7 @@
       }
       const dxf = window.PulumurDXF.toDxf(drawing);
       if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
-      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_12-preview-table-scale-v${drawing.input.version}`);
+      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_16-input-wrap-sync-v${drawing.input.version}`);
       downloadText(`${nameRoot}.dxf`, dxf);
       statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
     } catch (err) {
@@ -231,6 +260,8 @@
       if (!el) return;
       el.addEventListener('change', updatePreview);
       el.addEventListener('input', () => {
+        if (wrappingFields) return;
+        autosizeTextarea(el);
         if (id === 'rayCount' || id === 'postCount') {
           el.dataset.userEdited = String(el.value || '').trim() ? 'true' : 'false';
           if (id === 'rayCount' && $('postCount') && $('postCount').dataset.userEdited !== 'true') {

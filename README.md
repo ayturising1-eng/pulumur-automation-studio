@@ -1,7 +1,11 @@
-# Pülümür Automation Studio V8.2.12
+# Pülümür Automation Studio V8.2.16
 
-V8.2.11 stabil TEXT tabanı korunmuştur.
+V8.2.15 çalışan tabanı korunmuştur.
 
-Bu sürümde sol üst opsiyon tablosu, üst görünüşün -X yönündeki en uç çizgisinden 500 birim sola kadar olan alana göre eş oranlı ölçeklenir. Tablo genişliği, satır yüksekliği, iç boşluklar ve yazı yüksekliği aynı katsayıyla büyür/küçülür.
+Bu sürümde değer giriş sayfasındaki üst tablo alanları, DXF üst tablo değer sütunu mantığıyla senkronize edilmiştir:
 
-MTEXT tekrar açılmamıştır; güvenli AC1009/R12 DXF motoru korunmuştur.
+- Üst tablo değer sütunu sanal kırılım limiti: 2130 birim
+- Üst tablo kolon ölçüsü: 1460 / 2140
+- Formdaki opsiyon değerleri textarea yapısına alındı.
+- Formdaki satır kırılımı DXF tablo kırılımı ile aynı karakter hesabını kullanır.
+- MTEXT yoktur; güvenli AC1009/R12 DXF motoru korunmuştur.
