@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pülümür Automation Studio</title>
-  <link rel="stylesheet" href="style.css?v=8.2.36" />
+  <link rel="stylesheet" href="style.css?v=8.2.37" />
 </head>
 <body>
   <header class="app-header">
@@ -12,7 +12,7 @@
       <div class="brand-mark">PLMR</div>
       <div>
         <h1>Pülümür Automation Studio</h1>
-        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.2.35 · DraftSight Quality Preview / A0 PDF</p>
+        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.2.37 · Excel Default Form</p>
       </div>
     </div>
     <div class="top-actions">
@@ -67,24 +67,24 @@
 
         <fieldset class="options-fieldset">
           <legend>Opsiyonlar</legend>
-          <label><span>Parapet</span><select id="parapet"><option>HAYIR</option><option>EVET</option></select></label>
+          <label><span>Parapet</span><input id="parapet" list="yesNoOptions" value="HAYIR" /></label>
           <label><span>Parapet Yüksekliği <b>(mm)</b></span><input id="parapetHeight" type="text" inputmode="text" placeholder="-" /></label>
-          <label><span>Cam Kaydı</span><select id="glassTrack"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Yan Kayıt</span><select id="sideTrack"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Structure Color</span><textarea id="structureColor" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>Fabric</span><textarea id="fabric" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>Fabric Profiles</span><textarea id="fabricProfiles" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>Motor</span><textarea id="motor" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>Remote</span><textarea id="remote" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>LED</span><textarea id="led" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
-          <label><span>Dimmer</span><textarea id="dimmer" class="upper-table-field" rows="1" placeholder="-"></textarea></label>
+          <label><span>Cam Kaydı</span><input id="glassTrack" list="yesNoOptions" value="HAYIR" /></label>
+          
+          <label><span>Structure Color</span><input id="structureColor" class="upper-table-field" list="structureColorOptions" placeholder="-" /></label>
+          <label><span>Fabric</span><input id="fabric" class="upper-table-field" list="fabricOptions" placeholder="-" /></label>
+          <label><span>Fabric Profiles</span><input id="fabricProfiles" class="upper-table-field" list="fabricProfileOptions" placeholder="-" /></label>
+          <label><span>Motor</span><input id="motor" class="upper-table-field" list="motorOptions" placeholder="-" /></label>
+          <label><span>Remote</span><input id="remote" class="upper-table-field" list="remoteOptions" placeholder="-" /></label>
+          <label><span>LED</span><input id="led" class="upper-table-field" list="yesNoOptions" placeholder="-" /></label>
+          <label><span>Dimmer</span><input id="dimmer" class="upper-table-field" list="yesNoOptions" placeholder="-" /></label>
           <label class="span-two extras-field"><span>Extras / Notes</span><textarea id="extras" class="upper-table-field" rows="3" placeholder="-"></textarea></label>
         </fieldset>
 
         <fieldset>
           <legend>Ek Opsiyonlar</legend>
-          <label><span>Üçgen Doğrama</span><select id="triangleJoinery"><option>HAYIR</option><option>EVET</option></select></label>
-          <label><span>Su Çıkışı Standart mı?</span><select id="waterStandard"><option>EVET</option><option>HAYIR</option></select></label>
+          <label><span>Üçgen Doğrama</span><input id="triangleJoinery" list="yesNoOptions" value="HAYIR" /></label>
+          <label><span>Su Çıkışı Standart mı?</span><input id="waterStandard" list="yesNoOptions" value="EVET" /></label>
           <div class="info-box">
             Bu <strong>V8.2 PERI01 Sayfa1 sürümü</strong> ray/dikme otomatik hesabını ve çoklu ray sayısı girişini PERI01 makro mantığına göre işler. Genişlik, açılım, arka yükseklik ve ray sayısında ; kullanımı ve genişlikte NO ara boşluk modu desteklenir.
           </div>
@@ -118,6 +118,50 @@
       </details>
     </aside>
   </main>
+
+  <datalist id="yesNoOptions">
+    <option value="EVET"></option>
+    <option value="HAYIR"></option>
+    <option value="YES"></option>
+    <option value="NO"></option>
+    <option value="-"></option>
+  </datalist>
+  <datalist id="motorOptions">
+    <option value="-"></option>
+    <option value="RISING MOTOR"></option>
+    <option value="SOMFY RTS"></option>
+    <option value="SOMFY IO"></option>
+  </datalist>
+  <datalist id="remoteOptions">
+    <option value="-"></option>
+    <option value="RISING 6 CHANNELS"></option>
+    <option value="SITUO 2 RTS"></option>
+    <option value="SITUO 5 RTS"></option>
+    <option value="TELIS 16 RTS"></option>
+    <option value="SITUO 2 IO"></option>
+    <option value="SITUO 5 IO"></option>
+  </datalist>
+  <datalist id="structureColorOptions">
+    <option value="-"></option>
+    <option value="RAL 7016 TEXT."></option>
+    <option value="RAL 7016"></option>
+    <option value="RAL 9005"></option>
+    <option value="RAL 9016"></option>
+    <option value="RAL 1013"></option>
+  </datalist>
+  <datalist id="fabricOptions">
+    <option value="-"></option>
+    <option value="C 1602 - M (8116-1622)"></option>
+    <option value="C 1013"></option>
+    <option value="C 1015"></option>
+    <option value="C 7016"></option>
+  </datalist>
+  <datalist id="fabricProfileOptions">
+    <option value="-"></option>
+    <option value="RAL 1013"></option>
+    <option value="RAL 7016 TEXT."></option>
+    <option value="RAL 9016"></option>
+  </datalist>
 
   <dialog id="calculatorDialog" class="modal">
     <form method="dialog" class="modal-card">
@@ -155,11 +199,11 @@
     </form>
   </dialog>
 
-  <script src="blocks/filteredBlocks.js?v=8.2.36"></script>
-  <script src="peri01ExcelBridge.js?v=8.2.36"></script>
-  <script src="peri01Geometry.js?v=8.2.36"></script>
-  <script src="dxfEngine.js?v=8.2.36"></script>
+  <script src="blocks/filteredBlocks.js?v=8.2.37"></script>
+  <script src="peri01ExcelBridge.js?v=8.2.37"></script>
+  <script src="peri01Geometry.js?v=8.2.37"></script>
+  <script src="dxfEngine.js?v=8.2.37"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="app.js?v=8.2.36"></script>
+  <script src="app.js?v=8.2.37"></script>
 </body>
 </html>

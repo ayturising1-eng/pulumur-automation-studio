@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.35 - DRAFTSIGHT QUALITY PREVIEW/PDF - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.37 - EXCEL DEFAULT FORM - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {

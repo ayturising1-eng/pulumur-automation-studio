@@ -17,17 +17,25 @@
   const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
   let wrappingFields = false;
   const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
+  const EXCEL_DEFAULT_INPUT = {
+    product: 'Pergo Rise', moduleName: 'Module 1', engine: 'Web DXF',
+    customer: '', project: '', version: '01', drawnBy: 'AYETULLAH KILINC', date: '',
+    systemCount: '', width: '', opening: '', rearHeight: '', frontHeight: '', rayCount: '', postCount: '',
+    parapet: 'HAYIR', parapetHeight: '-', glassTrack: 'HAYIR', sideTrack: 'HAYIR',
+    structureColor: '-', fabric: '-', fabricProfiles: '-', motor: '-', remote: '-', led: '-', dimmer: '-', extras: '-',
+    triangleJoinery: 'HAYIR', waterStandard: 'EVET'
+  };
 
   function today() {
     return new Date().toISOString().slice(0, 10);
   }
 
   function fillInitial() {
-    const d = window.PulumurGeometry.SAMPLE_INPUT;
+    const d = { ...EXCEL_DEFAULT_INPUT, date: today() };
     ids.forEach(id => {
       if ($(id) && d[id] !== undefined) $(id).value = d[id];
     });
-    $('date').value = today();
+    if ($('date')) $('date').value = d.date;
     ['rayCount', 'postCount'].forEach(id => {
       if ($(id)) $(id).dataset.userEdited = 'false';
     });
@@ -66,7 +74,7 @@
         ? String(value || '').replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
         : value;
       return acc;
-    }, {});
+    }, { sideTrack: 'HAYIR' });
   }
 
   function firstNumber(value) {
@@ -268,7 +276,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_36-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_37-v${drawing.input.version}`);
   }
 
   function generateDxf() {
