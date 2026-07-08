@@ -1,4 +1,8 @@
-# Pülümür Automation Studio — V8.2.28
+# Pülümür Automation Studio
+
+## v8.2.32
+- Çoklu poz üst toplam ölçüsü, yan/cam kayıt profili çiziliyorsa poz 1 sol profil -X dış ucundan son poz sağ profil +X dış ucuna göre alınır.
+- Yan/cam kayıt yoksa v8.2.31 ray arka mekanizma bloğu uç sınırı korunur.
 
 Bu sürümde:
 - PERI01 DraftSight v32 / AutoCAD v30 LISP kaynak mantığına göre parapet aktifken karşı görünüşe parapet ölçülendirmesi eklendi.

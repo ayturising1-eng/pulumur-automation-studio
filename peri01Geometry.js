@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.28 - PARAPET DIMENSIONS - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.32 - SIDE TRACK TOTAL DIM FIX - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -528,6 +528,18 @@
   function systemRanges(d) { return d.systems.map(sys => { const rays = sys.rays; const x1 = rays.length ? rays[0] - 6 : sys.startX; const x2 = rays.length ? rays[rays.length - 1] + 86 : sys.endX; return { system: sys.index, x1, x2, mid: (x1 + x2) / 2 }; }); }
   function systemGapRanges(d) { const out = []; for (let i = 0; i < d.systems.length - 1; i += 1) { const left = d.systems[i], right = d.systems[i + 1]; const x1 = left.rays[left.rays.length - 1] + 80; const x2 = right.rays[0]; out.push({ x1, x2, mid: (x1 + x2) / 2 }); } return out; }
 
+
+  function topSideTrackTotalRange(d) {
+    // V8.2.32: Çoklu pozda yan/cam kayıt profili çiziliyorsa toplam üst ölçü,
+    // ray arka mekanizma bloklarından değil yan kayıt profillerinin dış X uçlarından alınır.
+    // Üst görünüşte bu profil drawTopGlassTrack içinde GLASS katmanında 100 mm genişliğinde çizilir.
+    if (!yes(d.glassTrack)) return null;
+    const x1 = d.solX - 50;       // Poz 1 sol yan kayıt profilinin -X dış ucu
+    const x2 = d.sagX + 50;       // Son poz sağ yan kayıt profilinin +X dış ucu
+    if (!Number.isFinite(x1) || !Number.isFinite(x2) || x2 <= x1) return null;
+    return { x1, x2, mid: (x1 + x2) / 2 };
+  }
+
   function dikmeAraAxes(d) {
     const out = [];
     if (d.systems.length <= 1) return out;
@@ -772,8 +784,9 @@
     const firstRange = ranges[0];
     const lastRange = ranges[ranges.length - 1];
     if (firstRange && lastRange) {
-      const totalMeasureX1 = firstRange.x1;
-      const totalMeasureX2 = lastRange.x2;
+      const sideTrackRange = topSideTrackTotalRange(d);
+      const totalMeasureX1 = sideTrackRange ? sideTrackRange.x1 : firstRange.x1;
+      const totalMeasureX2 = sideTrackRange ? sideTrackRange.x2 : lastRange.x2;
       const wallTopMaxY = Math.max(...d.systems.map(sys => Math.max(topWallYAt(d, sys.index), topWallYAt(d, sys.index) + topWallHAt(d, sys.index))));
       const totalDimY = wallTopMaxY + 50;
       addDimH(g, totalMeasureX1, totalMeasureX2, wallTopMaxY, totalDimY, `TOPLAM GENİŞLİK ${formatMm(totalMeasureX2 - totalMeasureX1)}`);
