@@ -9,10 +9,12 @@
     POST: { stroke: '#9a3412', width: 4 },
     WALL: { stroke: '#6b7280', width: 4, dash: '18 12' },
     TOPWALL: { stroke: '#9ca3af', width: 4, dash: '18 12' },
+    HATCH_WALL: { stroke: '#6b7280', width: 1 },
+    HATCH_FABRIC: { stroke: '#c79600', width: 1 },
     GLASS: { stroke: '#d946ef', width: 3 },
     TRIANGLE: { stroke: '#00a36c', width: 3 },
     WATER: { stroke: '#1d4ed8', width: 3 },
-    DIM: { stroke: '#be123c', width: 2 },
+    DIM: { stroke: '#c79600', width: 2 },
     TEXT: { stroke: '#0f172a', width: 1 },
     TABLE: { stroke: '#0f172a', width: 2 },
     TITLE: { stroke: '#0f172a', width: 2 },
@@ -67,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.20 - PERI01 TRIANGLE FIX - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.24 - SAFE BLOCK HATCHES - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -324,16 +326,71 @@
       poly(points, closed = false, layer = 'OUTLINE') { return push({ type: 'polyline', points, closed, layer }); },
       text(x, y, value, height = 90, layer = 'TEXT', align = 'left', rotation = 0) { return push({ type: 'text', x, y, value: String(value ?? ''), height, layer, align, rotation }); },
       mtext(x, y, value, height = 90, width = 1000, layer = 'TEXT', align = 'left', rotation = 0, lineSpacing = 1.15) { return push({ type: 'mtext', x, y, value: String(value ?? ''), height, width, layer, align, rotation, lineSpacing }); },
+      dimension(data) { return push({ type: 'dimension', layer: 'DIM', style: 'MESUT-MM', ...(data || {}) }); },
       insert(name, x, y, options = {}) { return push({ type: 'insert', name: String(name ?? ''), x, y, layer: options.layer || 'BLOCKREF', rotation: options.rotation || 0, scaleX: options.scaleX || 1, scaleY: options.scaleY || 1, previewW: options.previewW || 120, previewH: options.previewH || 80 }); }
     };
   }
 
-  function addArrow(g, x, y, angle, size, layer) { g.line(x, y, x + Math.cos(angle + Math.PI * 0.84) * size, y + Math.sin(angle + Math.PI * 0.84) * size, layer); g.line(x, y, x + Math.cos(angle - Math.PI * 0.84) * size, y + Math.sin(angle - Math.PI * 0.84) * size, layer); }
-  function addDimH(g, x1, x2, yRef, yDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(x1, yRef, x1, yDim, layer); g.line(x2, yRef, x2, yDim, layer); g.line(x1, yDim, x2, yDim, layer); addArrow(g, x1, yDim, 0, 70, layer); addArrow(g, x2, yDim, Math.PI, 70, layer); g.text((x1 + x2) / 2, yDim + 95, label, 85, layer, 'center'); }
-  function addDimV(g, y1, y2, xRef, xDim, label) { if (K.showDimensions === false) return; const layer = 'DIM'; g.line(xRef, y1, xDim, y1, layer); g.line(xRef, y2, xDim, y2, layer); g.line(xDim, y1, xDim, y2, layer); addArrow(g, xDim, y1, Math.PI / 2, 70, layer); addArrow(g, xDim, y2, -Math.PI / 2, 70, layer); g.text(xDim - 120, (y1 + y2) / 2, label, 85, layer, 'center', 90); }
+  function dimMeasuredText(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? String(Math.round(Math.abs(n))) : '<>';
+  }
+
+  function dimArrowPoly(x, y, angle, size = 100, layer = 'DIM') {
+    const ux = Math.cos(angle), uy = Math.sin(angle);
+    const nx = -uy, ny = ux;
+    const tailX = x + ux * size;
+    const tailY = y + uy * size;
+    const hw = size * 0.34;
+    return { type: 'polyline', layer, closed: true, points: [[x, y], [tailX + nx * hw, tailY + ny * hw], [tailX - nx * hw, tailY - ny * hw]], color: 42 };
+  }
+
+  function dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, textRot = 0) {
+    const layer = 'DIM';
+    const dx = q2x - q1x, dy = q2y - q1y;
+    const ang = Math.atan2(dy, dx);
+    const textH = 180;
+    return [
+      { type: 'line', layer, x1, y1, x2: q1x, y2: q1y, color: 42 },
+      { type: 'line', layer, x1: x2, y1: y2, x2: q2x, y2: q2y, color: 42 },
+      { type: 'line', layer, x1: q1x, y1: q1y, x2: q2x, y2: q2y, color: 42 },
+      dimArrowPoly(q1x, q1y, ang, 100, layer),
+      dimArrowPoly(q2x, q2y, ang + Math.PI, 100, layer),
+      { type: 'text', layer: 'TEXT', x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: 1 }
+    ];
+  }
+
+  function addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, measured, rotationDeg = 0) {
+    if (K.showDimensions === false) return;
+    const textValue = dimMeasuredText(measured);
+    g.dimension({
+      dimKind: 'aligned',
+      p1: { x: x1, y: y1 },
+      p2: { x: x2, y: y2 },
+      dimLine: { x: (q1x + q2x) / 2, y: (q1y + q2y) / 2 },
+      text: { x: textX, y: textY },
+      textOverride: '<>',
+      measuredValue: Math.abs(Number(measured) || 0),
+      graphics: dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, rotationDeg)
+    });
+  }
+
+  function addDimH(g, x1, x2, yRef, yDim, label) {
+    const measured = Math.abs(x2 - x1);
+    const textX = (x1 + x2) / 2;
+    const textY = yDim + 140;
+    addDimAlignedEntity(g, x1, yRef, x2, yRef, x1, yDim, x2, yDim, textX, textY, measured, 0);
+  }
+
+  function addDimV(g, y1, y2, xRef, xDim, label) {
+    const measured = Math.abs(y2 - y1);
+    const textX = xDim - 150;
+    const textY = (y1 + y2) / 2;
+    addDimAlignedEntity(g, xRef, y1, xRef, y2, xDim, y1, xDim, y2, textX, textY, measured, 90);
+  }
+
   function addDimAligned(g, x1, y1, x2, y2, xLoc, yLoc, label) {
     if (K.showDimensions === false) return;
-    const layer = 'DIM';
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
     const ux = dx / len, uy = dy / len;
@@ -341,12 +398,9 @@
     const off = ((xLoc - x1) * nx + (yLoc - y1) * ny);
     const q1x = x1 + nx * off, q1y = y1 + ny * off;
     const q2x = x2 + nx * off, q2y = y2 + ny * off;
-    g.line(x1, y1, q1x, q1y, layer);
-    g.line(x2, y2, q2x, q2y, layer);
-    g.line(q1x, q1y, q2x, q2y, layer);
-    addArrow(g, q1x, q1y, Math.atan2(uy, ux), 70, layer);
-    addArrow(g, q2x, q2y, Math.atan2(-uy, -ux), 70, layer);
-    g.text((q1x + q2x) / 2, (q1y + q2y) / 2 + 95, label, 85, layer, 'center', Math.atan2(dy, dx) * 180 / Math.PI);
+    const textX = (q1x + q2x) / 2 + nx * 120;
+    const textY = (q1y + q2y) / 2 + ny * 120;
+    addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, len, Math.atan2(dy, dx) * 180 / Math.PI);
   }
   function rotatePoint(px, py, bx, by, ang) { const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang); return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca]; }
   function getBlocks() { return (root.PulumurFilteredBlocks && root.PulumurFilteredBlocks.blocks) ? root.PulumurFilteredBlocks.blocks : {}; }
@@ -361,10 +415,37 @@
 
   function mirrorEntityX(e, midX) {
     const mx = x => 2 * midX - x;
+    const readableRot = rot => {
+      const r = normDeg(Number(rot) || 0);
+      return (r > 90 && r < 270) ? normDeg(r + 180) : r;
+    };
     if (e.type === 'line') return { ...e, x1: mx(e.x1), x2: mx(e.x2) };
     if (e.type === 'polyline') return { ...e, points: (e.points || []).map(p => [mx(p[0]), p[1]]) };
     if (e.type === 'circle') return { ...e, x: mx(e.x) };
-    if (e.type === 'text') return { ...e, x: mx(e.x), rotation: normDeg(180 - (Number(e.rotation) || 0)) };
+    if (e.type === 'text') {
+      const mirroredRot = normDeg(180 - (Number(e.rotation) || 0));
+      const nextRot = e.keepReadableOnMirror ? readableRot(mirroredRot) : mirroredRot;
+      return { ...e, x: mx(e.x), rotation: nextRot };
+    }
+    if (e.type === 'dimension') {
+      const mapPt = p => p ? ({ x: mx(p.x), y: p.y }) : p;
+      const mirrorDimGraphic = ge => {
+        if (ge && ge.type === 'text') {
+          // Ayna yan görünüşte ölçü bloğu yansırken yazı okunur kalsın.
+          // Geometri X yönünde aynalanır; ölçü yazısının dönüşü ters çevrilmez.
+          return { ...ge, x: mx(ge.x), rotation: readableRot(ge.rotation) };
+        }
+        return mirrorEntityX(ge, midX);
+      };
+      return {
+        ...e,
+        p1: mapPt(e.p1),
+        p2: mapPt(e.p2),
+        dimLine: mapPt(e.dimLine),
+        text: mapPt(e.text),
+        graphics: (e.graphics || []).map(mirrorDimGraphic)
+      };
+    }
     if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(-(Number(e.rotation) || 0)), scaleX: Math.abs(Number(e.scaleX) || 1), mirrorX: !e.mirrorX };
     return { ...e };
   }
@@ -408,6 +489,13 @@
     else if (e.type === 'polyline') { e.points = (e.points || []).map(p => [p[0], p[1] + dy]); }
     else if (e.type === 'circle') { e.y += dy; }
     else if (e.type === 'text') { e.y += dy; }
+    else if (e.type === 'dimension') {
+      if (e.p1) e.p1.y += dy;
+      if (e.p2) e.p2.y += dy;
+      if (e.dimLine) e.dimLine.y += dy;
+      if (e.text) e.text.y += dy;
+      (e.graphics || []).forEach(ge => moveEntityY(ge, dy));
+    }
     else if (e.type === 'insert') { e.y += dy; }
   }
   function moveEntityRangeY(g, startIndex, endIndex, dy) {
@@ -478,6 +566,44 @@
     return out;
   }
 
+
+  function customHatchBlocks() {
+    const brick = [];
+    const brickCourse = 200;
+    for (let y = brickCourse; y < 1000; y += brickCourse) brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: 0, y1: y, x2: 1000, y2: y });
+    for (let row = 0; row < 5; row += 1) {
+      const y1 = row * brickCourse;
+      const y2 = Math.min(1000, y1 + brickCourse);
+      const start = row % 2 === 0 ? 250 : 125;
+      for (let x = start; x < 1000; x += 250) brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: x, y1, x2: x, y2 });
+    }
+
+    const trapez = [];
+    for (let x = 75; x < 1000; x += 150) {
+      trapez.push({ type: 'line', layer: 'HATCH_FABRIC', color: 42, x1: x, y1: 0, x2: x, y2: 1000 });
+      trapez.push({ type: 'line', layer: 'HATCH_FABRIC', color: 42, x1: x + 42, y1: 0, x2: x + 42, y2: 1000 });
+    }
+
+    return {
+      'PULUMUR WALL BRICK SAFE HATCH': { dxfName: 'PULUMUR_WALL_BRICK_HATCH', bounds: { minX: 0, minY: 0, maxX: 1000, maxY: 1000 }, entities: brick },
+      'PULUMUR TRAPEZ SAFE HATCH': { dxfName: 'PULUMUR_TRAPEZ_SAFE_HATCH', bounds: { minX: 0, minY: 0, maxX: 1000, maxY: 1000 }, entities: trapez }
+    };
+  }
+
+  function safeHatchBlock(g, name, x, y, w, h, layer) {
+    const ww = Number(w) || 0;
+    const hh = Number(h) || 0;
+    if (Math.abs(ww) < 50 || Math.abs(hh) < 50) return;
+    // R12 güvenli tarama: gerçek HATCH yerine 1000x1000 blok tek INSERT ile ölçeklenir.
+    // X yönünde negatif ölçek, özellikle aynalı yan görünüşlerde taramayı duvar dışına taşıyabiliyordu.
+    // Bu yüzden INSERT noktası gerçek sol sınıra alınır; X ölçeği her zaman pozitif tutulur.
+    // Y yönünde üst referansı korumak için gerektiğinde negatif scaleY kullanılabilir.
+    const insX = ww >= 0 ? x : x + ww;
+    const scaleX = Math.abs(ww) / 1000;
+    const scaleY = hh / 1000;
+    g.insert(name, insX, y, { layer, rotation: 0, scaleX, scaleY, previewW: Math.abs(ww), previewH: Math.abs(hh) });
+  }
+
   function topWallYAt(d, idx) { return -(d.openingList[0] - (nthOrLast(d.openingList, idx) || d.opening)); }
   function topWallHAt(d, idx) { return K.topWallH + (d.maxOpening - (nthOrLast(d.openingList, idx) || d.opening)); }
   function topCatiProfilYAt(d, idx) { return topWallYAt(d, idx) - 400; }
@@ -491,6 +617,7 @@
       const wx = sys.startX - K.topWallInset;
       const ww = sys.width + K.topWallInset * 2;
       g.rect(wx, y, ww, h, 'TOPWALL');
+      safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', wx, y, ww, h, 'HATCH_WALL');
     });
   }
 
@@ -534,6 +661,21 @@
     });
   }
 
+  function drawTopTrapezSafeHatch(g, d) {
+    d.systems.forEach(sys => {
+      const p = d.positions[sys.index] || d.positions[0];
+      const firstRayX = sys.rays && sys.rays.length ? sys.rays[0] : sys.rayAreaStartX;
+      const lastRayX = sys.rays && sys.rays.length ? sys.rays[sys.rays.length - 1] : sys.rayAreaEndX;
+      const x = firstRayX;
+      const w = Math.max(1, lastRayX - firstRayX); // V8.2.26: son raydan +X yönünde K.rayW/76-80 mm taşma yok
+      const wallY = topWallYAt(d, sys.index);
+      const roofY = topCatiProfilYAt(d, sys.index);
+      const shift = (p.rayLength / K.catiProfilRayRatioBase) * K.catiProfilRayRatioMove + K.catiProfilExtraOffset;
+      const bottomY = roofY - shift;
+      safeHatchBlock(g, 'PULUMUR TRAPEZ SAFE HATCH', x, wallY, w, bottomY - wallY, 'HATCH_FABRIC');
+    });
+  }
+
   function drawTopTrapez(g, d) {
     d.systems.forEach(sys => {
       const p = d.positions[sys.index] || d.positions[0];
@@ -574,11 +716,12 @@
     d.systems.forEach((sys, i) => {
       const label = d.systemCount > 1 ? `PERGO RISE POZ ${i + 1}` : 'PERGO RISE';
       const fit = pergoRiseTextFitForSystem(d, sys, label);
-      g.text(fit.x, textY, label, fit.h, 'TITLE', 'center');
+      const ent = g.text(fit.x, textY, label, fit.h, 'TITLE', 'center');
+      ent.color = 3; // PERI01 pergoPozYaz: (col "3")
     });
   }
 
-  function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } }
+  function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); drawTopTrapezSafeHatch(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } }
 
   function drawFrontView(g, d) {
     const postXs = postCenterXs(d);
@@ -586,7 +729,7 @@
     const onDikmeH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
     const altBlokY = rectStartY - d.frontHeight + K.altBlockCorrection + d.parapetHeight;
     g.rect(K.gutterX, rectStartY, d.width + 100, K.frontGutterH, 'PROFILE');
-    if (yes(d.parapet) && d.parapetHeight > 0) { const pBaseY = rectStartY - d.frontHeight; const pTopY = pBaseY + d.parapetHeight; g.rect(K.systemStartX, pTopY, d.width, -d.parapetHeight, 'WALL'); }
+    if (yes(d.parapet) && d.parapetHeight > 0) { const pBaseY = rectStartY - d.frontHeight; const pTopY = pBaseY + d.parapetHeight; g.rect(K.systemStartX, pTopY, d.width, -d.parapetHeight, 'WALL'); safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', K.systemStartX, pTopY, d.width, -d.parapetHeight, 'HATCH_WALL'); }
     d.systems.forEach(sys => {
       const p = d.positions[sys.index] || d.positions[0];
       const rayTopY = onRayTopYForPosition(d, sys.index);
@@ -673,13 +816,18 @@
     if (d.postCount > 0) { g.rect(yanX, yanPostUstY, -K.postSize, -dikH, 'POST'); blockRef(g, 'PergoRise Dikme Oluk Bağlantı Yan Görünüş', yanX, yanPostUstY, 130, 80, 'BLOCKREF', 270); blockRef(g, 'PergoRise Dikme Alt Bağlantı Yan Görünüş', yanX - 50, yanAltY, 120, 70); }
     blockRef(g, 'PergoRise Oluk Yan Görünüş Birleştirilmiş', yanX, yanUstY, 220, 135);
     if (yes(d.glassTrack) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) { const camBaseX = yanX - 100, camBaseY = yanUstY - 3, camW = Math.max(1, p.opening - 100); g.rect(camBaseX, camBaseY, -camW, -100, 'GLASS'); if (camW > 5000) { const destekX = camBaseX - camW / 2 - 50, destekY = camBaseY - 100, destekH = Math.max(1, d.frontHeight - 103 - d.parapetHeight); g.rect(destekX, destekY, 100, -destekH, 'GLASS'); } }
-    if (yes(d.parapet) && d.parapetHeight > 0) { g.rect(duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'WALL'); }
+    if (yes(d.parapet) && d.parapetHeight > 0) { g.rect(duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'WALL'); safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'HATCH_WALL'); }
     g.rect(duvarX, duvarY, -K.sideWallDepth, p.rearHeight, 'WALL');
+    safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', duvarX, duvarY, -K.sideWallDepth, p.rearHeight, 'HATCH_WALL');
     blockRef(g, 'PergoRise Ray Duvar Bağlantı Set', bagX, bagY, 120, 95); blockRef(g, 'PergoRise Ray Arka Mekanizma Yan Görünüş', arkaMekX, arkaMekY, 135, 90, 'BLOCKREF', normDeg(aci * 180 / Math.PI));
     rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'RAY'); rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'RAY');
     const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci); const rotDeg = normDeg(aci * 180 / Math.PI); blockRef(g, 'PergoRise Ray Kafası Yan Görünüş', kafa[0], kafa[1], 130, 90, 'BLOCKREF', rotDeg);
     // V8.2.1: Yan görünüşte çatı kayıt profili ve ray çekici araba setleri çizilmez.
-    if (K.showDimensions !== false) { const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci); g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center'); }
+    if (K.showDimensions !== false) {
+      const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci);
+      const angleText = g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
+      angleText.keepReadableOnMirror = true;
+    }
     if (!yes(d.waterStandard)) { const basX = yanX - 35.5; const basY = yanUstY + 13.9; g.rect(basX, basY, 300, 70, 'WATER'); g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left'); }
     p._triangleRange = null;
     if (yes(d.triangleJoinery) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) {
@@ -834,6 +982,10 @@
       if (block) return transformBlockBounds(block, e);
       const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80);
       return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2];
+    }
+    if (e.type === 'dimension') {
+      const gs = (e.graphics || []).map(entityBoundsArray);
+      if (gs.length) return [Math.min(...gs.map(b => b[0])), Math.min(...gs.map(b => b[1])), Math.max(...gs.map(b => b[2])), Math.max(...gs.map(b => b[3]))];
     }
     return [0, 0, 0, 0];
   }
@@ -1185,7 +1337,7 @@
     drawFrame(g, d);
     drawUpperOptionsTable(g, d);
     drawBottomTitleTable(g, d);
-    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: getBlocks() };
+    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: { ...getBlocks(), ...customHatchBlocks() } };
   }
 
   function entityBounds(e) {
@@ -1200,6 +1352,7 @@
     if (e.type === 'polyline') { const xs = e.points.map(p => p[0]), ys = e.points.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
     if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r];
     if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) return transformBlockBounds(block, e); const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80); return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2]; }
+    if (e.type === 'dimension') { const gs = (e.graphics || []).map(entityBounds); if (gs.length) return [Math.min(...gs.map(b => b[0])), Math.min(...gs.map(b => b[1])), Math.max(...gs.map(b => b[2])), Math.max(...gs.map(b => b[3]))]; }
     return [0, 0, 0, 0];
   }
   function bounds(entities) { const b = entities.map(entityBounds); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
@@ -1208,7 +1361,7 @@
   function renderSvg(drawing) {
     const ents = drawing.entities; const b = bounds(ents); const pad = 450; const minX = b.minX - pad; const maxY = b.maxY + pad; const viewW = b.width + pad * 2; const viewH = b.height + pad * 2; const sx = x => x - minX; const sy = y => maxY - y; const parts = [];
     parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}">`); parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
-    for (const e of ents) { const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE; const stroke = st.stroke; const sw = st.width; const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : ''; if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'polyline') { const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); } else if (e.type === 'text') { const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`); } else if (e.type === 'mtext') { const lines = String(e.value || '').split('\\P'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join(''); parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`); } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) { const group = []; (block.entities || []).forEach(be => { const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF; const bstroke = bst.stroke; const bsw = Math.max(1, (bst.width || 2)); if (be.type === 'line') { const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e); group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'polyline') { const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'circle') { const p = transformLocalPoint(be.x, be.y, e); const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2)); group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } }); parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`); } else { const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : ''; parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`); } } }
+    for (const e of ents) { const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE; const stroke = st.stroke; const sw = st.width; const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : ''; if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'polyline') { const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); } else if (e.type === 'text') { const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`); } else if (e.type === 'mtext') { const lines = String(e.value || '').split('\\P'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join(''); parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`); } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'dimension') { (e.graphics || []).forEach(ge => { const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM; const gstroke = gst.stroke; const gsw = gst.width || sw; if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`); else if (ge.type === 'polyline') { const points = ge.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`); } else if (ge.type === 'text') { const anchor = ge.align === 'center' ? 'middle' : (ge.align === 'right' ? 'end' : 'start'); const rot = ge.rotation ? ` transform="rotate(${-ge.rotation} ${sx(ge.x)} ${sy(ge.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(ge.x)}" y="${sy(ge.y)}" font-size="${ge.height}" text-anchor="${anchor}" fill="${gstroke}"${rot}>${escXml(ge.value)}</text>`); } }); } else if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) { const group = []; (block.entities || []).forEach(be => { const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF; const bstroke = bst.stroke; const bsw = Math.max(1, (bst.width || 2)); if (be.type === 'line') { const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e); group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'polyline') { const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'circle') { const p = transformLocalPoint(be.x, be.y, e); const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2)); group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } }); parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`); } else { const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : ''; parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`); } } }
     parts.push('</svg>'); return parts.join('\n');
   }
 

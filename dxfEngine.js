@@ -9,10 +9,12 @@
     POST: 6,
     WALL: 8,
     TOPWALL: 8,
+    HATCH_WALL: 8,
+    HATCH_FABRIC: 42,
     GLASS: 6,
     TRIANGLE: 130,
     WATER: 5,
-    DIM: 1,
+    DIM: 42,
     TEXT: 7,
     TABLE: 7,
     TITLE: 7,
@@ -23,6 +25,7 @@
 
   function cleanText(value) {
     return String(value ?? '')
+      .replace(/°/g, '%%d')
       .replace(/\r\n/g, ' ')
       .replace(/\n/g, ' ')
       .replace(/\t/g, ' ')
@@ -55,11 +58,30 @@
   }
 
   function layerColor(layer) { return COLOR[layer] ?? 7; }
+  function entityColor(e) { return Number.isFinite(Number(e && e.color)) ? Number(e.color) : layerColor(e && e.layer); }
 
   function headerSection() {
     return [
       pair(0, 'SECTION'), pair(2, 'HEADER'),
       pair(9, '$ACADVER'), pair(1, 'AC1009'),
+      pair(9, '$DWGCODEPAGE'), pair(3, 'ansi_1254'),
+      // yazdırma plot.dxf AC1009/R12 modelspace mantığına uyumlu başlangıç ayarları
+      pair(9, '$TILEMODE'), pair(70, 1),
+      pair(9, '$MIRRTEXT'), pair(70, 0),
+      pair(9, '$TEXTSTYLE'), pair(7, 'STANDARD'),
+      pair(9, '$CLAYER'), pair(8, '0'),
+      pair(9, '$CELTYPE'), pair(6, 'BYLAYER'),
+      pair(9, '$CECOLOR'), pair(62, 256),
+      pair(9, '$LUNITS'), pair(70, 2),
+      pair(9, '$LUPREC'), pair(70, 0),
+      pair(9, '$MEASUREMENT'), pair(70, 1),
+      pair(9, '$DIMSTYLE'), pair(2, 'MESUT-MM'),
+      pair(9, '$DIMSCALE'), pair(40, 1),
+      pair(9, '$DIMASZ'), pair(40, 100),
+      pair(9, '$DIMTXT'), pair(40, 180),
+      pair(9, '$DIMCLRD'), pair(70, 42),
+      pair(9, '$DIMCLRE'), pair(70, 42),
+      pair(9, '$DIMCLRT'), pair(70, 1),
       pair(9, '$INSBASE'), pair(10, 0), pair(20, 0), pair(30, 0),
       pair(9, '$EXTMIN'), pair(10, -10000), pair(20, -20000), pair(30, 0),
       pair(9, '$EXTMAX'), pair(10, 12000), pair(20, 6000), pair(30, 0),
@@ -98,15 +120,32 @@
     ];
   }
 
+  function dimstyleTable() {
+    // mesut-mm.dxf içindeki MESUT-MM ölçü stilinin AC1009/R12 uyumlu karşılığı.
+    // Temel değerler: DIMASZ=100, DIMTXT=180, DIMCLRD/DIMCLRE=42, DIMCLRT=1.
+    return [
+      pair(0, 'TABLE'), pair(2, 'DIMSTYLE'), pair(70, 1),
+      pair(0, 'DIMSTYLE'), pair(2, 'MESUT-MM'), pair(70, 0),
+      pair(3, ''), pair(4, ''), pair(5, ''), pair(6, ''), pair(7, ''),
+      pair(40, 1), pair(41, 100), pair(42, 0.625), pair(43, 3.735), pair(44, 1.25),
+      pair(45, 0), pair(46, 0), pair(47, 0), pair(48, 0),
+      pair(140, 180), pair(141, 2), pair(142, 0), pair(143, 0.03937), pair(144, 1), pair(145, 0), pair(146, 1), pair(147, 0.625),
+      pair(71, 0), pair(72, 0), pair(73, 0), pair(74, 0), pair(75, 0), pair(76, 0), pair(77, 1), pair(78, 8),
+      pair(170, 0), pair(171, 3), pair(172, 1), pair(173, 0), pair(174, 0), pair(175, 0),
+      pair(176, 42), pair(177, 42), pair(178, 1),
+      pair(0, 'ENDTAB')
+    ];
+  }
+
   function tablesSection(layers) {
-    return [pair(0, 'SECTION'), pair(2, 'TABLES'), ...ltypeTable(), ...layerTable(layers), ...styleTable(), pair(0, 'ENDSEC')];
+    return [pair(0, 'SECTION'), pair(2, 'TABLES'), ...ltypeTable(), ...layerTable(layers), ...styleTable(), ...dimstyleTable(), pair(0, 'ENDSEC')];
   }
 
   function lineEntity(e) {
     return [
       pair(0, 'LINE'),
       pair(8, cleanText(e.layer || 'OUTLINE')),
-      pair(62, layerColor(e.layer)),
+      pair(62, entityColor(e)),
       pair(10, fixed(e.x1)), pair(20, fixed(e.y1)), pair(30, 0),
       pair(11, fixed(e.x2)), pair(21, fixed(e.y2)), pair(31, 0)
     ];
@@ -116,7 +155,7 @@
     return [
       pair(0, 'CIRCLE'),
       pair(8, cleanText(e.layer || 'BLOCK')),
-      pair(62, layerColor(e.layer)),
+      pair(62, entityColor(e)),
       pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
       pair(40, fixed(e.r))
     ];
@@ -126,7 +165,7 @@
     const out = [
       pair(0, 'POLYLINE'),
       pair(8, cleanText(e.layer || 'OUTLINE')),
-      pair(62, layerColor(e.layer)),
+      pair(62, entityColor(e)),
       pair(66, 1),
       pair(10, 0), pair(20, 0), pair(30, 0),
       pair(70, e.closed ? 1 : 0)
@@ -135,7 +174,7 @@
       out.push(
         pair(0, 'VERTEX'),
         pair(8, cleanText(e.layer || 'OUTLINE')),
-        pair(62, layerColor(e.layer)),
+        pair(62, entityColor(e)),
         pair(10, fixed(p[0])), pair(20, fixed(p[1])), pair(30, 0),
         pair(70, 0)
       );
@@ -149,7 +188,7 @@
     const out = [
       pair(0, 'TEXT'),
       pair(8, cleanText(e.layer || 'TEXT')),
-      pair(62, layerColor(e.layer)),
+      pair(62, entityColor(e)),
       pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
       pair(40, fixed(e.height || 80)),
       pair(1, cleanText(e.value)),
@@ -194,6 +233,28 @@
     const ca = Math.cos(a);
     const sa = Math.sin(a);
     return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca];
+  }
+
+
+  function dimensionEntity(e) {
+    const name = e.blockName || '*D0';
+    const p1 = e.p1 || { x: 0, y: 0 };
+    const p2 = e.p2 || { x: 0, y: 0 };
+    const dl = e.dimLine || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    const tx = e.text || dl;
+    return [
+      pair(0, 'DIMENSION'),
+      pair(8, cleanText(e.layer || 'DIM')),
+      pair(62, entityColor(e)),
+      pair(2, name),
+      pair(10, fixed(dl.x)), pair(20, fixed(dl.y)), pair(30, 0),
+      pair(11, fixed(tx.x)), pair(21, fixed(tx.y)), pair(31, 0),
+      pair(70, 33),
+      pair(1, e.textOverride == null ? '<>' : String(e.textOverride)),
+      pair(3, 'MESUT-MM'),
+      pair(13, fixed(p1.x)), pair(23, fixed(p1.y)), pair(33, 0),
+      pair(14, fixed(p2.x)), pair(24, fixed(p2.y)), pair(34, 0)
+    ];
   }
 
   function insertEntity(e, block) {
@@ -282,6 +343,17 @@ function collectSharedBlocks(drawing, sourceBlocks) {
     return used;
   }
 
+
+  function collectDimensionBlocks(drawing, blocks) {
+    let i = 1;
+    (drawing.entities || []).forEach(e => {
+      if (e.type !== 'dimension') return;
+      const name = e.blockName || `*D${i++}`;
+      e.blockName = name;
+      blocks[name] = { dxfName: name, entities: e.graphics || [] };
+    });
+  }
+
   function insertAsSafePreview(e) {
     const w = Math.max(20, Math.abs(e.previewW || 120));
     const h = Math.max(20, Math.abs(e.previewH || 80));
@@ -306,6 +378,8 @@ function collectSharedBlocks(drawing, sourceBlocks) {
     if (e.type === 'line') return lineEntity(e);
     if (e.type === 'polyline') return polyEntity(e);
     if (e.type === 'circle') return circleEntity(e);
+    if (e.type === 'text') return textEntity(e);
+    if (e.type === 'mtext') return mtextEntity(e);
     return [];
   }
 
@@ -339,6 +413,7 @@ function collectSharedBlocks(drawing, sourceBlocks) {
   function toDxf(drawing) {
     const sourceBlocks = getBlocks(drawing);
     const blocks = collectSharedBlocks(drawing, sourceBlocks);
+    collectDimensionBlocks(drawing, blocks);
     const layers = drawing.layers && drawing.layers.length ? drawing.layers : ['OUTLINE', 'TEXT'];
     const out = [];
     append(out, headerSection());
@@ -351,6 +426,7 @@ function collectSharedBlocks(drawing, sourceBlocks) {
       else if (e.type === 'circle') append(out, circleEntity(e));
       else if (e.type === 'text') append(out, textEntity(e));
       else if (e.type === 'mtext') append(out, mtextEntity(e));
+      else if (e.type === 'dimension') append(out, dimensionEntity(e));
       else if (e.type === 'insert') {
         if (isHeavyDisabledBlockName(e.name)) return;
         const block = sourceBlocks[e.name];

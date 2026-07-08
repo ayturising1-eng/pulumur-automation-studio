@@ -1,5 +1,7 @@
-# Pülümür Automation Studio v8.2.20.1
+# Pülümür Automation Studio — V8.2.26
 
-Küçük düzeltme:
-- Farklı açılımlı çoklu pozlarda son pozun sol yan görünüşünde üçgen doğrama çizilmez.
-- Son pozun sağdaki ayna yan görünüşünde üçgen doğrama çizilmeye devam eder.
+Bu sürümde:
+- Üst görünüş trapez sac blok taramasının +X yönünde son raydan taşması düzeltildi.
+- Tarama alanı her poz için ilk ray X noktası ile son ray X noktası arasında kalır.
+- V8.2.25’teki yan görünüş duvar/parapet tarama düzeltmeleri korunur.
+- samples klasöründe sadece bu sürümün test DXF dosyaları bulunur.
