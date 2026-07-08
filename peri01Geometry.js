@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.32 - SIDE TRACK TOTAL DIM FIX - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.34 - PREMIUM PREVIEW / A0 PDF - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -1452,6 +1452,10 @@
   function bounds(entities, blockLib) { const b = entities.map(e => entityBounds(e, blockLib)); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
   function escXml(s) { return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
+  function previewStrokeWidth(value, minimum = 0.28) {
+    return Math.max(minimum, (Number(value) || 2) * 0.42);
+  }
+
   function renderSvg(drawing) {
     const ents = drawing.entities;
     const blockLib = drawing.blocks || { ...getBlocks(), ...customHatchBlocks() };
@@ -1469,7 +1473,7 @@
     for (const e of ents) {
       const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE;
       const stroke = st.stroke;
-      const sw = st.width;
+      const sw = previewStrokeWidth(st.width);
       const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
       if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       else if (e.type === 'polyline') {
@@ -1489,7 +1493,7 @@
         (e.graphics || []).forEach(ge => {
           const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM;
           const gstroke = gst.stroke;
-          const gsw = gst.width || sw;
+          const gsw = previewStrokeWidth(gst.width || sw, 0.24);
           if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
           else if (ge.type === 'polyline') {
             const points = ge.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
@@ -1507,7 +1511,7 @@
           (block.entities || []).forEach(be => {
             const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF;
             const bstroke = bst.stroke;
-            const bsw = Math.max(1, (bst.width || 2));
+            const bsw = previewStrokeWidth(bst.width || 2, 0.24);
             if (be.type === 'line') {
               const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
               group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);

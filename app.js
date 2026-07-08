@@ -16,6 +16,7 @@
   let lastCalc = null;
   const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
   let wrappingFields = false;
+  const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
 
   function today() {
     return new Date().toISOString().slice(0, 10);
@@ -115,15 +116,132 @@
       const drawing = window.PulumurGeometry.buildDrawing(data);
       syncUpperInputWrap(data);
       lastDrawing = drawing;
-      preview.innerHTML = window.PulumurGeometry.renderSvg(drawing);
+      renderPreview(drawing, true);
       const d = drawing.input;
-      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}.`;
+      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan.`;
       return drawing;
     } catch (err) {
       preview.innerHTML = '<div class="empty-state">Önizleme için zorunlu ölçüleri doldur.</div>';
       statusText.textContent = err.message;
       return null;
     }
+  }
+
+  function getPreviewStage() {
+    return preview.querySelector('.preview-stage');
+  }
+
+  function getPreviewSvg() {
+    return preview.querySelector('svg');
+  }
+
+  function getSvgViewBoxSize(svg) {
+    const vb = svg && svg.viewBox && svg.viewBox.baseVal;
+    return {
+      width: Math.max(1, vb && vb.width ? vb.width : (svg ? (svg.clientWidth || 1000) : 1000)),
+      height: Math.max(1, vb && vb.height ? vb.height : (svg ? (svg.clientHeight || 1000) : 1000))
+    };
+  }
+
+  function computePreviewFitScale(svg) {
+    const box = getSvgViewBoxSize(svg);
+    const padding = 24;
+    const availableW = Math.max(120, preview.clientWidth - padding * 2);
+    const availableH = Math.max(120, preview.clientHeight - padding * 2);
+    return Math.max(0.01, Math.min(availableW / box.width, availableH / box.height));
+  }
+
+  function applyPreviewScale() {
+    const stage = getPreviewStage();
+    const svg = getPreviewSvg();
+    if (!stage || !svg) return;
+    const box = getSvgViewBoxSize(svg);
+    previewState.baseScale = computePreviewFitScale(svg);
+    const totalScale = previewState.baseScale * previewState.zoom;
+    stage.style.width = `${Math.max(80, box.width * totalScale)}px`;
+    stage.style.height = `${Math.max(80, box.height * totalScale)}px`;
+  }
+
+  function renderPreview(drawing, resetZoom = true) {
+    const svg = window.PulumurGeometry.renderSvg(drawing);
+    preview.innerHTML = `<div class="preview-stage">${svg}</div>`;
+    if (resetZoom) {
+      previewState.zoom = 1;
+      preview.scrollLeft = 0;
+      preview.scrollTop = 0;
+    }
+    window.requestAnimationFrame(() => applyPreviewScale());
+  }
+
+  function fitPreview() {
+    previewState.zoom = 1;
+    preview.scrollLeft = 0;
+    preview.scrollTop = 0;
+    applyPreviewScale();
+  }
+
+  function setPreviewZoom(nextZoom, clientX, clientY) {
+    const svg = getPreviewSvg();
+    if (!svg) return;
+    const rect = preview.getBoundingClientRect();
+    const oldScale = Math.max(0.0001, previewState.baseScale * previewState.zoom);
+    const localX = (clientX ?? (rect.left + rect.width / 2)) - rect.left;
+    const localY = (clientY ?? (rect.top + rect.height / 2)) - rect.top;
+    const worldX = (preview.scrollLeft + localX) / oldScale;
+    const worldY = (preview.scrollTop + localY) / oldScale;
+    previewState.zoom = Math.max(previewState.minZoom, Math.min(previewState.maxZoom, nextZoom));
+    applyPreviewScale();
+    const newScale = Math.max(0.0001, previewState.baseScale * previewState.zoom);
+    preview.scrollLeft = Math.max(0, worldX * newScale - localX);
+    preview.scrollTop = Math.max(0, worldY * newScale - localY);
+  }
+
+  function bindPreviewInteractions() {
+    preview.addEventListener('wheel', evt => {
+      if (!getPreviewSvg()) return;
+      evt.preventDefault();
+      const factor = evt.deltaY < 0 ? 1.14 : (1 / 1.14);
+      setPreviewZoom(previewState.zoom * factor, evt.clientX, evt.clientY);
+    }, { passive: false });
+
+    preview.addEventListener('pointerdown', evt => {
+      if (evt.button !== 0 || !getPreviewSvg()) return;
+      previewState.dragActive = true;
+      previewState.pointerId = evt.pointerId;
+      previewState.dragStartX = evt.clientX;
+      previewState.dragStartY = evt.clientY;
+      previewState.dragScrollLeft = preview.scrollLeft;
+      previewState.dragScrollTop = preview.scrollTop;
+      preview.classList.add('is-dragging');
+      if (preview.setPointerCapture) {
+        try { preview.setPointerCapture(evt.pointerId); } catch (_) {}
+      }
+      evt.preventDefault();
+    });
+
+    preview.addEventListener('pointermove', evt => {
+      if (!previewState.dragActive) return;
+      preview.scrollLeft = previewState.dragScrollLeft - (evt.clientX - previewState.dragStartX);
+      preview.scrollTop = previewState.dragScrollTop - (evt.clientY - previewState.dragStartY);
+    });
+
+    const stopDrag = evt => {
+      if (evt && preview.releasePointerCapture && previewState.pointerId !== null) {
+        try { preview.releasePointerCapture(previewState.pointerId); } catch (_) {}
+      }
+      previewState.dragActive = false;
+      previewState.pointerId = null;
+      preview.classList.remove('is-dragging');
+    };
+
+    preview.addEventListener('pointerup', stopDrag);
+    preview.addEventListener('pointercancel', stopDrag);
+    preview.addEventListener('dblclick', evt => {
+      if (!getPreviewSvg()) return;
+      const next = previewState.zoom < 1.6 ? Math.max(1.8, previewState.zoom * 1.6) : 1;
+      setPreviewZoom(next, evt.clientX, evt.clientY);
+    });
+    window.addEventListener('resize', () => applyPreviewScale());
   }
 
   function downloadBlob(filename, blob) {
@@ -150,7 +268,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_32-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_34-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -204,11 +322,9 @@ ${err.message}`);
   function pdfPageForBounds(box) {
     const ratio = Math.max(0.1, Math.min(10, box.width / Math.max(1, box.height)));
     const landscape = ratio >= 1;
-    const longMm = 420;
-    const shortMm = Math.max(297, Math.min(420, Math.round(longMm / Math.max(ratio, 1 / ratio))));
     return landscape
-      ? { width: longMm, height: shortMm, orientation: 'landscape' }
-      : { width: shortMm, height: longMm, orientation: 'portrait' };
+      ? { width: 1189, height: 841, orientation: 'landscape' }
+      : { width: 841, height: 1189, orientation: 'portrait' };
   }
 
   function setPdfStroke(pdf, ent, layerStyle, scale) {
@@ -289,8 +405,8 @@ ${err.message}`);
         ? window.PulumurGeometry.flattenDrawingForExport(drawing)
         : { bounds: window.PulumurGeometry.bounds(drawing.entities || []) };
       const page = pdfPageForBounds(flat.bounds);
-      const pdf = new jsPDF({ orientation: page.orientation, unit: 'mm', format: [page.width, page.height], compress: true });
-      drawVectorPdf(pdf, drawing, page, 8);
+      const pdf = new jsPDF({ orientation: page.orientation, unit: 'mm', format: [page.width, page.height], compress: true, precision: 12, putOnlyUsedFonts: true });
+      drawVectorPdf(pdf, drawing, page, 6);
       const blob = pdf.output('blob');
       const nameRoot = buildNameRoot(drawing);
       downloadBlob(`${nameRoot}.pdf`, blob);
@@ -321,6 +437,7 @@ ${err.message}`);
     } catch (err) {
       previewPanel.classList.toggle('is-expanded');
     }
+    window.setTimeout(() => applyPreviewScale(), 60);
     syncExpandButton();
   }
 
@@ -408,6 +525,7 @@ ${err.message}`);
     $('previewBtn').addEventListener('click', updatePreview);
     $('resetBtn').addEventListener('click', resetForm);
     $('expandPreviewBtn').addEventListener('click', () => { void togglePreviewFullscreen(); });
+    $('fitPreviewBtn').addEventListener('click', fitPreview);
     $('calcBtn').addEventListener('click', openCalculator);
     $('helpBtn').addEventListener('click', showHelp);
     $('calcComputeBtn').addEventListener('click', () => {
@@ -441,7 +559,8 @@ ${err.message}`);
     });
   }
 
-  document.addEventListener('fullscreenchange', syncExpandButton);
+  document.addEventListener('fullscreenchange', () => { window.setTimeout(() => applyPreviewScale(), 60); syncExpandButton(); });
+  bindPreviewInteractions();
   fillInitial();
   bindEvents();
   updatePreview();
