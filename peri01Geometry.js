@@ -644,14 +644,28 @@
 
   function drawTopGlassTrack(g, d) {
     if (!yes(d.glassTrack)) return;
-    const firstL = Math.max(1, d.openingList[0] - 100);
-    const lastL = Math.max(1, nthOrLast(d.openingList, d.sidePositionCount - 1) - 100);
-    const baseY = d.posY + 100;
+    const firstA = nthOrLast(d.openingList, 0) || d.opening;
+    const lastIdx = Math.max(0, d.systemCount - 1);
+    const lastA = nthOrLast(d.openingList, lastIdx) || firstA;
+    const firstL = Math.max(1, firstA - 100);
+    const lastL = Math.max(1, lastA - 100);
+    const baseY = -firstA + 100;
     const leftX = d.solX - 50;
     const rightX = d.sagX - 50;
+
+    // PERI01 camKaydiUstCiz mantığı:
+    // Farklı açılımda ilk ve son yan kayıtların -Y ucu aynı hizada kalır.
+    // Bu nedenle iki profil de aynı baseY'den başlar; profil boyları poz açılımına göre değiştiği için
+    // +Y uçları Poz1 / Son Poz duvar Y referanslarına göre farklı kotlara gelir.
     g.rect(leftX, baseY, 100, firstL, 'GLASS');
-    g.rect(rightX, baseY + (firstL - lastL), 100, lastL, 'GLASS');
-    [[leftX, firstL, baseY], [rightX, lastL, baseY + (firstL - lastL)]].forEach(([baseX, camL, by]) => { if (camL > 5000) { const postY = by + camL / 2 - 50; g.rect(baseX, postY, 100, 100, 'GLASS'); g.rect(baseX + 2, postY + 2, 96, 96, 'GLASS'); } });
+    g.rect(rightX, baseY, 100, lastL, 'GLASS');
+    [[leftX, firstL, baseY], [rightX, lastL, baseY]].forEach(([baseX, camL, by]) => {
+      if (camL > 5000) {
+        const postY = by + camL / 2 - 50;
+        g.rect(baseX, postY, 100, 100, 'GLASS');
+        g.rect(baseX + 2, postY + 2, 96, 96, 'GLASS');
+      }
+    });
   }
 
   function drawTopRoofProfiles(g, d) {
