@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pülümür Automation Studio</title>
-  <link rel="stylesheet" href="style.css?v=8.2.22" />
+  <link rel="stylesheet" href="style.css?v=8.2.29" />
 </head>
 <body>
   <header class="app-header">
@@ -12,7 +12,7 @@
       <div class="brand-mark">PLMR</div>
       <div>
         <h1>Pülümür Automation Studio</h1>
-        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.2.26 · Safe Block Hatches</p>
+        <p>Parametrik Çizim ve Proje Otomasyonu · Pergo Rise · Web DXF V8.2.29 · Preview / PDF / Fullscreen</p>
       </div>
     </div>
     <div class="top-actions">
@@ -93,7 +93,8 @@
 
       <div class="action-row">
         <button id="generateBtn" class="primary-btn" type="button">DXF Oluştur ve İndir</button>
-        <button id="previewBtn" class="secondary-btn" type="button">Önizlemeyi Yenile</button>
+        <button id="pdfBtn" class="secondary-btn" type="button">PDF Oluştur ve İndir</button>
+        <button id="previewBtn" class="soft-btn" type="button">Önizlemeyi Yenile</button>
         <button id="resetBtn" class="danger-btn" type="button">Değerleri Resetle</button>
       </div>
     </section>
@@ -104,7 +105,10 @@
           <h2>Çizim Önizleme</h2>
           <p id="statusText">Ölçüleri girince önizleme otomatik güncellenir.</p>
         </div>
-        <span class="pill">mm · DXF</span>
+        <div class="preview-tools">
+          <button id="expandPreviewBtn" class="soft-btn preview-tool-btn" type="button">Önizlemeyi Büyüt</button>
+          <span class="pill">mm · DXF / PDF</span>
+        </div>
       </div>
       <div id="preview" class="preview-canvas" role="img" aria-label="DXF çizim önizlemesi"></div>
       <details class="notes" open>
@@ -150,10 +154,11 @@
     </form>
   </dialog>
 
-  <script src="blocks/filteredBlocks.js?v=8.2.22"></script>
-  <script src="peri01ExcelBridge.js?v=8.2.22"></script>
-  <script src="peri01Geometry.js?v=8.2.22"></script>
-  <script src="dxfEngine.js?v=8.2.22"></script>
-  <script src="app.js?v=8.2.22"></script>
+  <script src="blocks/filteredBlocks.js?v=8.2.29"></script>
+  <script src="peri01ExcelBridge.js?v=8.2.29"></script>
+  <script src="peri01Geometry.js?v=8.2.29"></script>
+  <script src="dxfEngine.js?v=8.2.29"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="app.js?v=8.2.29"></script>
 </body>
 </html>

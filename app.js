@@ -11,6 +11,7 @@
   const $ = id => document.getElementById(id);
   const statusText = $('statusText');
   const preview = $('preview');
+  const previewPanel = document.querySelector('.preview-panel');
   let lastDrawing = null;
   let lastCalc = null;
   const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
@@ -125,8 +126,7 @@
     }
   }
 
-  function downloadText(filename, text) {
-    const blob = new Blob([text], { type: 'application/dxf;charset=utf-8' });
+  function downloadBlob(filename, blob) {
     if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
       window.navigator.msSaveOrOpenBlob(blob, filename);
       return;
@@ -145,6 +145,14 @@
     }, 1500);
   }
 
+  function downloadText(filename, text, mime = 'application/octet-stream;charset=utf-8') {
+    downloadBlob(filename, new Blob([text], { type: mime }));
+  }
+
+  function buildNameRoot(drawing) {
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_29-v${drawing.input.version}`);
+  }
+
   function generateDxf() {
     try {
       const drawing = updatePreview();
@@ -154,14 +162,127 @@
       }
       const dxf = window.PulumurDXF.toDxf(drawing);
       if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
-      const nameRoot = window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_16-input-wrap-sync-v${drawing.input.version}`);
-      downloadText(`${nameRoot}.dxf`, dxf);
+      const nameRoot = buildNameRoot(drawing);
+      downloadText(`${nameRoot}.dxf`, dxf, 'application/dxf;charset=utf-8');
       statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
     } catch (err) {
       statusText.textContent = `DXF oluşturma hatası: ${err.message}`;
-      window.alert(`DXF oluşturma hatası:\n${err.message}`);
+      window.alert(`DXF oluşturma hatası:
+${err.message}`);
       console.error(err);
     }
+  }
+
+  function ensureJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+    const existing = document.querySelector('script[data-jspdf="1"]');
+    if (existing) {
+      return new Promise((resolve, reject) => {
+        existing.addEventListener('load', () => resolve(window.jspdf && window.jspdf.jsPDF), { once: true });
+        existing.addEventListener('error', () => reject(new Error('jsPDF yüklenemedi.')), { once: true });
+      });
+    }
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+      script.async = true;
+      script.dataset.jspdf = '1';
+      script.onload = () => resolve(window.jspdf && window.jspdf.jsPDF);
+      script.onerror = () => reject(new Error('PDF kütüphanesi yüklenemedi.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  function svgMarkupFromDrawing(drawing) {
+    return window.PulumurGeometry.renderSvg(drawing);
+  }
+
+  function loadSvgImage(svgText) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('SVG önizlemesi görsele dönüştürülemedi.'));
+      };
+      img.src = url;
+    });
+  }
+
+  function parseViewBox(svgText) {
+    const match = String(svgText).match(/viewBox="([^"]+)"/i);
+    if (!match) return { width: 1000, height: 1000 };
+    const nums = match[1].trim().split(/\s+/).map(Number);
+    return { width: Math.max(1, nums[2] || 1000), height: Math.max(1, nums[3] || 1000) };
+  }
+
+  async function generatePdf() {
+    preview.classList.add('is-loading');
+    try {
+      const drawing = updatePreview();
+      if (!drawing) return;
+      const jsPDF = await ensureJsPdf();
+      if (!jsPDF) throw new Error('PDF kütüphanesi aktif değil.');
+      const svgText = svgMarkupFromDrawing(drawing);
+      const box = parseViewBox(svgText);
+      const img = await loadSvgImage(svgText);
+      const longestPx = 4200;
+      const scale = longestPx / Math.max(box.width, box.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1400, Math.round(box.width * scale));
+      canvas.height = Math.max(1400, Math.round(box.height * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('PDF için çizim yüzeyi oluşturulamadı.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const imgData = canvas.toDataURL('image/png', 1.0);
+
+      const ratio = box.width / box.height;
+      const landscape = ratio >= 1;
+      const longMm = 420;
+      const shortMm = Math.max(297, Math.round(longMm / Math.max(ratio, 1 / ratio)));
+      const pageW = landscape ? longMm : shortMm;
+      const pageH = landscape ? shortMm : longMm;
+      const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: [pageH, pageW], compress: true });
+      pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST');
+      const blob = pdf.output('blob');
+      const nameRoot = buildNameRoot(drawing);
+      downloadBlob(`${nameRoot}.pdf`, blob);
+      statusText.textContent = `PDF indirildi: ${nameRoot}.pdf`;
+    } catch (err) {
+      statusText.textContent = `PDF oluşturma hatası: ${err.message}`;
+      window.alert(`PDF oluşturma hatası:
+${err.message}`);
+      console.error(err);
+    } finally {
+      preview.classList.remove('is-loading');
+    }
+  }
+
+  function syncExpandButton() {
+    const btn = $('expandPreviewBtn');
+    if (!btn || !previewPanel) return;
+    const expanded = document.fullscreenElement === previewPanel || previewPanel.classList.contains('is-expanded');
+    btn.textContent = expanded ? 'Önizlemeyi Küçült' : 'Önizlemeyi Büyüt';
+  }
+
+  async function togglePreviewFullscreen() {
+    if (!previewPanel) return;
+    try {
+      const isFs = document.fullscreenElement === previewPanel;
+      if (isFs && document.exitFullscreen) await document.exitFullscreen();
+      else if (!document.fullscreenElement && previewPanel.requestFullscreen) await previewPanel.requestFullscreen();
+      else previewPanel.classList.toggle('is-expanded');
+    } catch (err) {
+      previewPanel.classList.toggle('is-expanded');
+    }
+    syncExpandButton();
   }
 
   function resetForm() {
@@ -244,8 +365,10 @@
 
   function bindEvents() {
     $('generateBtn').addEventListener('click', generateDxf);
+    $('pdfBtn').addEventListener('click', () => { void generatePdf(); });
     $('previewBtn').addEventListener('click', updatePreview);
     $('resetBtn').addEventListener('click', resetForm);
+    $('expandPreviewBtn').addEventListener('click', () => { void togglePreviewFullscreen(); });
     $('calcBtn').addEventListener('click', openCalculator);
     $('helpBtn').addEventListener('click', showHelp);
     $('calcComputeBtn').addEventListener('click', () => {
@@ -279,7 +402,9 @@
     });
   }
 
+  document.addEventListener('fullscreenchange', syncExpandButton);
   fillInitial();
   bindEvents();
   updatePreview();
+  syncExpandButton();
 })();

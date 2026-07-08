@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.24 - SAFE BLOCK HATCHES - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.28 - PARAPET DIMENSIONS - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -345,22 +345,24 @@
     return { type: 'polyline', layer, closed: true, points: [[x, y], [tailX + nx * hw, tailY + ny * hw], [tailX - nx * hw, tailY - ny * hw]], color: 42 };
   }
 
-  function dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, textRot = 0) {
+  function dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, textRot = 0, options = {}) {
     const layer = 'DIM';
     const dx = q2x - q1x, dy = q2y - q1y;
     const ang = Math.atan2(dy, dx);
-    const textH = 180;
+    const scale = Number(options.scale || 1) > 0 ? Number(options.scale || 1) : 1;
+    const textH = 180 * scale;
+    const arrowSize = 100 * scale;
     return [
       { type: 'line', layer, x1, y1, x2: q1x, y2: q1y, color: 42 },
       { type: 'line', layer, x1: x2, y1: y2, x2: q2x, y2: q2y, color: 42 },
       { type: 'line', layer, x1: q1x, y1: q1y, x2: q2x, y2: q2y, color: 42 },
-      dimArrowPoly(q1x, q1y, ang, 100, layer),
-      dimArrowPoly(q2x, q2y, ang + Math.PI, 100, layer),
+      dimArrowPoly(q1x, q1y, ang, arrowSize, layer),
+      dimArrowPoly(q2x, q2y, ang + Math.PI, arrowSize, layer),
       { type: 'text', layer: 'TEXT', x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: 1 }
     ];
   }
 
-  function addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, measured, rotationDeg = 0) {
+  function addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, measured, rotationDeg = 0, options = {}) {
     if (K.showDimensions === false) return;
     const textValue = dimMeasuredText(measured);
     g.dimension({
@@ -371,22 +373,24 @@
       text: { x: textX, y: textY },
       textOverride: '<>',
       measuredValue: Math.abs(Number(measured) || 0),
-      graphics: dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, rotationDeg)
+      graphics: dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, rotationDeg, options)
     });
   }
 
-  function addDimH(g, x1, x2, yRef, yDim, label) {
+  function addDimH(g, x1, x2, yRef, yDim, label, options = {}) {
     const measured = Math.abs(x2 - x1);
+    const scale = Number(options.scale || 1) > 0 ? Number(options.scale || 1) : 1;
     const textX = (x1 + x2) / 2;
-    const textY = yDim + 140;
-    addDimAlignedEntity(g, x1, yRef, x2, yRef, x1, yDim, x2, yDim, textX, textY, measured, 0);
+    const textY = yDim + 140 * scale;
+    addDimAlignedEntity(g, x1, yRef, x2, yRef, x1, yDim, x2, yDim, textX, textY, measured, 0, options);
   }
 
-  function addDimV(g, y1, y2, xRef, xDim, label) {
+  function addDimV(g, y1, y2, xRef, xDim, label, options = {}) {
     const measured = Math.abs(y2 - y1);
-    const textX = xDim - 150;
+    const scale = Number(options.scale || 1) > 0 ? Number(options.scale || 1) : 1;
+    const textX = xDim - 150 * scale;
     const textY = (y1 + y2) / 2;
-    addDimAlignedEntity(g, xRef, y1, xRef, y2, xDim, y1, xDim, y2, textX, textY, measured, 90);
+    addDimAlignedEntity(g, xRef, y1, xRef, y2, xDim, y1, xDim, y2, textX, textY, measured, 90, options);
   }
 
   function addDimAligned(g, x1, y1, x2, y2, xLoc, yLoc, label) {
@@ -773,6 +777,24 @@
     postXs.forEach(x => { blockRef(g, 'PergoRise Dikme Oluk Bağlantı Karşı Görünüş', x, rectStartY, 135, 85); g.rect(x - 50, rectStartY - K.onPostTopDrop, K.postSize, -onDikmeH, 'POST'); blockRef(g, 'PergoRise Dikme Alt Bağlantı Karşı Görünüş', x, altBlokY, 125, 70); });
     addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
     addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
+
+    // PERI01 LISP v32/v30 parapet mantığı:
+    // Parapet varsa karşı görünüşte iki ek düşey ölçü çizilir.
+    // 1) Parapet alt kotu -> parapet üst kotu
+    // 2) Parapet üst kotu -> oluk altı/dikme üst referansı
+    // Ölçülen referans X'i karşı görünüş başlangıcıdır; ölçü aksları üst görünüş açılım ölçüsüyle aynı sol aksa alınır.
+    if (yes(d.parapet) && d.parapetHeight > 0) {
+      const onParapetBaseY = rectStartY - d.frontHeight;
+      const onParapetTopY = onParapetBaseY + d.parapetHeight;
+      const onOlukAltiY = rectStartY;
+      const onOlcuGeomX = K.systemStartX;
+      const onOlcuAksX = 100;
+      const onOlcuAksX2 = -130;
+      const smallDim = { scale: 0.82 };
+      addDimV(g, onParapetBaseY, onParapetTopY, onOlcuGeomX, onOlcuAksX, `PARAPET ${formatMm(d.parapetHeight)}`, smallDim);
+      addDimV(g, onParapetTopY, onOlukAltiY, onOlcuGeomX, onOlcuAksX2, `DİKME ${formatMm(onOlukAltiY - onParapetTopY)}`, smallDim);
+    }
+
     if (d.systemCount > 1 && postXs.length > 1) { const midY = rectStartY - onDikmeH / 2; for (let i = 0; i < postXs.length - 1; i += 1) addDimH(g, postXs[i] + 50, postXs[i + 1] - 50, midY, midY, formatMm(postXs[i + 1] - postXs[i] - 100)); }
 
   }
@@ -882,7 +904,10 @@
       triangleDogramaDisOlcuCiz(g, copyX, copyY, AB, BC, AD);
       p._triangleRange = { start: triStart, end: g.entities.length };
     }
-    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`); addDimV(g, yanAltY, yanUstY, yanX + 130, yanX + 420, `ÖN ${formatMm(d.frontHeight)}`);
+    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`);
+    // PERI01: yan görünüş ön yükseklik ölçüsü, parapet aktifken de toplam ön kotu verir.
+    // Referans alt kotu duvar/parapet alt kotu, üst kotu oluk altı referansıdır.
+    addDimV(g, duvarY, duvarY + d.frontHeight, yanX, yanX + 350, `ÖN ${formatMm(d.frontHeight)}`);
   }
 
   function triangleFrameAllowance(d, idx) {
@@ -1373,29 +1398,103 @@
     return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: { ...getBlocks(), ...customHatchBlocks() } };
   }
 
-  function entityBounds(e) {
+  function entityBounds(e, blockLib) {
+    const blocks = blockLib || getBlocks();
     if (e.type === 'line') return [Math.min(e.x1, e.x2), Math.min(e.y1, e.y2), Math.max(e.x1, e.x2), Math.max(e.y1, e.y2)];
     if (e.type === 'text') return [e.x, e.y, e.x + String(e.value || '').length * e.height * 0.55, e.y + e.height];
     if (e.type === 'mtext') {
-      const lines = String(e.value || '').split('\\P');
+      const lines = String(e.value || '').split('\P');
       const width = Number(e.width || 0);
       const height = (Number(e.height) || 0) * Math.max(1, lines.length) * 1.2;
       return [e.x, e.y - height, e.x + width, e.y];
     }
     if (e.type === 'polyline') { const xs = e.points.map(p => p[0]), ys = e.points.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
     if (e.type === 'circle') return [e.x - e.r, e.y - e.r, e.x + e.r, e.y + e.r];
-    if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) return transformBlockBounds(block, e); const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80); return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2]; }
-    if (e.type === 'dimension') { const gs = (e.graphics || []).map(entityBounds); if (gs.length) return [Math.min(...gs.map(b => b[0])), Math.min(...gs.map(b => b[1])), Math.max(...gs.map(b => b[2])), Math.max(...gs.map(b => b[3]))]; }
+    if (e.type === 'insert') { const block = blocks[e.name]; if (block) return transformBlockBounds(block, e); const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80); return [e.x - w / 2, e.y - h / 2, e.x + w / 2, e.y + h / 2]; }
+    if (e.type === 'dimension') { const gs = (e.graphics || []).map(ge => entityBounds(ge, blocks)); if (gs.length) return [Math.min(...gs.map(b => b[0])), Math.min(...gs.map(b => b[1])), Math.max(...gs.map(b => b[2])), Math.max(...gs.map(b => b[3]))]; }
     return [0, 0, 0, 0];
   }
-  function bounds(entities) { const b = entities.map(entityBounds); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
+  function bounds(entities, blockLib) { const b = entities.map(e => entityBounds(e, blockLib)); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
   function escXml(s) { return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
   function renderSvg(drawing) {
-    const ents = drawing.entities; const b = bounds(ents); const pad = 450; const minX = b.minX - pad; const maxY = b.maxY + pad; const viewW = b.width + pad * 2; const viewH = b.height + pad * 2; const sx = x => x - minX; const sy = y => maxY - y; const parts = [];
-    parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}">`); parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
-    for (const e of ents) { const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE; const stroke = st.stroke; const sw = st.width; const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : ''; if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'polyline') { const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); } else if (e.type === 'text') { const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`); } else if (e.type === 'mtext') { const lines = String(e.value || '').split('\\P'); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : ''; const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join(''); parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`); } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`); else if (e.type === 'dimension') { (e.graphics || []).forEach(ge => { const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM; const gstroke = gst.stroke; const gsw = gst.width || sw; if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`); else if (ge.type === 'polyline') { const points = ge.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); parts.push(`<polyline points="${points}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`); } else if (ge.type === 'text') { const anchor = ge.align === 'center' ? 'middle' : (ge.align === 'right' ? 'end' : 'start'); const rot = ge.rotation ? ` transform="rotate(${-ge.rotation} ${sx(ge.x)} ${sy(ge.y)})"` : ''; parts.push(`<text class="dxf-text" x="${sx(ge.x)}" y="${sy(ge.y)}" font-size="${ge.height}" text-anchor="${anchor}" fill="${gstroke}"${rot}>${escXml(ge.value)}</text>`); } }); } else if (e.type === 'insert') { const block = getBlocks()[e.name]; if (block) { const group = []; (block.entities || []).forEach(be => { const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF; const bstroke = bst.stroke; const bsw = Math.max(1, (bst.width || 2)); if (be.type === 'line') { const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e); group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'polyline') { const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' '); group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } else if (be.type === 'circle') { const p = transformLocalPoint(be.x, be.y, e); const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2)); group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`); } }); parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`); } else { const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y); const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : ''; parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/><text class="dxf-text" x="${cx}" y="${cy + h / 2 + 34}" font-size="34" text-anchor="middle" fill="${stroke}">${escXml(e.name)}</text></g>`); } } }
-    parts.push('</svg>'); return parts.join('\n');
+    const ents = drawing.entities;
+    const blockLib = drawing.blocks || { ...getBlocks(), ...customHatchBlocks() };
+    const b = bounds(ents, blockLib);
+    const pad = 450;
+    const minX = b.minX - pad;
+    const maxY = b.maxY + pad;
+    const viewW = b.width + pad * 2;
+    const viewH = b.height + pad * 2;
+    const sx = x => x - minX;
+    const sy = y => maxY - y;
+    const parts = [];
+    parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" preserveAspectRatio="xMidYMid meet">`);
+    parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
+    for (const e of ents) {
+      const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE;
+      const stroke = st.stroke;
+      const sw = st.width;
+      const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
+      if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
+      else if (e.type === 'polyline') {
+        const points = e.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+        parts.push(`<polyline points="${points}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
+      } else if (e.type === 'text') {
+        const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start');
+        const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
+        parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
+      } else if (e.type === 'mtext') {
+        const lines = String(e.value || '').split('\P');
+        const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
+        const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join('');
+        parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`);
+      } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
+      else if (e.type === 'dimension') {
+        (e.graphics || []).forEach(ge => {
+          const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM;
+          const gstroke = gst.stroke;
+          const gsw = gst.width || sw;
+          if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
+          else if (ge.type === 'polyline') {
+            const points = ge.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+            parts.push(`<polyline points="${points}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
+          } else if (ge.type === 'text') {
+            const anchor = ge.align === 'center' ? 'middle' : (ge.align === 'right' ? 'end' : 'start');
+            const rot = ge.rotation ? ` transform="rotate(${-ge.rotation} ${sx(ge.x)} ${sy(ge.y)})"` : '';
+            parts.push(`<text class="dxf-text" x="${sx(ge.x)}" y="${sy(ge.y)}" font-size="${ge.height}" text-anchor="${anchor}" fill="${gstroke}"${rot}>${escXml(ge.value)}</text>`);
+          }
+        });
+      } else if (e.type === 'insert') {
+        const block = blockLib[e.name];
+        if (block) {
+          const group = [];
+          (block.entities || []).forEach(be => {
+            const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF;
+            const bstroke = bst.stroke;
+            const bsw = Math.max(1, (bst.width || 2));
+            if (be.type === 'line') {
+              const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
+              group.push(`<line x1="${sx(p1[0])}" y1="${sy(p1[1])}" x2="${sx(p2[0])}" y2="${sy(p2[1])}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            } else if (be.type === 'polyline') {
+              const points = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e)).map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+              group.push(`<polyline points="${points}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            } else if (be.type === 'circle') {
+              const p = transformLocalPoint(be.x, be.y, e);
+              const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2));
+              group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            }
+          });
+          parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`);
+        } else {
+          const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80), cx = sx(e.x), cy = sy(e.y);
+          const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${cx} ${cy})"` : '';
+          parts.push(`<g${rot}><rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/></g>`);
+        }
+      }
+    }
+    parts.push('</svg>');
+    return parts.join('\n');
   }
 
   const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput };
