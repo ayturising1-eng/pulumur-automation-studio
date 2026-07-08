@@ -268,7 +268,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_34-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_35-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -319,6 +319,34 @@ ${err.message}`);
     return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
   }
 
+  const ACI_HEX = {
+    1: '#ff0000',
+    2: '#ffff00',
+    3: '#00ff00',
+    4: '#00ffff',
+    5: '#0000ff',
+    6: '#ff00ff',
+    7: '#000000',
+    8: '#808080',
+    9: '#c0c0c0',
+    42: '#ffbf00',
+    130: '#00bf00',
+    256: null
+  };
+
+  function aciColorToHex(color, fallback = '#000000') {
+    if (window.PulumurGeometry && typeof window.PulumurGeometry.aciColorToHex === 'function') {
+      return window.PulumurGeometry.aciColorToHex(color, fallback);
+    }
+    const n = Number(color);
+    if (!Number.isFinite(n) || n === 256 || n === 0) return fallback;
+    return ACI_HEX[n] || fallback;
+  }
+
+  function entityPdfColor(ent, st) {
+    return aciColorToHex(ent && ent.color, (st && st.stroke) || '#000000');
+  }
+
   function pdfPageForBounds(box) {
     const ratio = Math.max(0.1, Math.min(10, box.width / Math.max(1, box.height)));
     const landscape = ratio >= 1;
@@ -328,14 +356,15 @@ ${err.message}`);
   }
 
   function setPdfStroke(pdf, ent, layerStyle, scale) {
-    const st = layerStyle[ent.layer] || layerStyle.OUTLINE || { stroke: '#000000', width: 2 };
-    const [r, g, b] = hexToRgb(st.stroke);
+    const st = layerStyle[ent.layer] || layerStyle.OUTLINE || { stroke: '#000000', width: 1 };
+    const [r, g, b] = hexToRgb(entityPdfColor(ent, st));
     pdf.setDrawColor(r, g, b);
     pdf.setTextColor(r, g, b);
-    const lw = Math.max(0.035, Math.min(0.45, (Number(st.width) || 2) * scale));
+    // DraftSight çıktısına yakın A0 görünümü: ince, vektörel ve keskin çizgi.
+    const lw = Math.max(0.04, Math.min(0.30, (Number(st.width) || 1) * scale * 0.85));
     pdf.setLineWidth(lw);
     if (st.dash && typeof pdf.setLineDashPattern === 'function') {
-      const dash = String(st.dash).split(/\s+/).map(Number).filter(Number.isFinite).map(v => Math.max(0.2, v * scale));
+      const dash = String(st.dash).split(/\s+/).map(Number).filter(Number.isFinite).map(v => Math.max(0.12, v * scale));
       pdf.setLineDashPattern(dash.length ? dash : [], 0);
     } else if (typeof pdf.setLineDashPattern === 'function') {
       pdf.setLineDashPattern([], 0);

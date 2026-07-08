@@ -2,25 +2,25 @@
   'use strict';
 
   const LAYER_STYLE = {
-    OUTLINE: { stroke: '#061f33', width: 5 },
-    PROFILE: { stroke: '#0d5d5f', width: 4 },
-    FABRIC: { stroke: '#c79600', width: 2, dash: '14 10' },
-    RAY: { stroke: '#184e77', width: 4 },
-    POST: { stroke: '#9a3412', width: 4 },
-    WALL: { stroke: '#6b7280', width: 4, dash: '18 12' },
-    TOPWALL: { stroke: '#9ca3af', width: 4, dash: '18 12' },
-    HATCH_WALL: { stroke: '#6b7280', width: 1 },
-    HATCH_FABRIC: { stroke: '#c79600', width: 1 },
-    GLASS: { stroke: '#d946ef', width: 3 },
-    TRIANGLE: { stroke: '#00a36c', width: 3 },
-    WATER: { stroke: '#1d4ed8', width: 3 },
-    DIM: { stroke: '#c79600', width: 2 },
-    TEXT: { stroke: '#0f172a', width: 1 },
-    TABLE: { stroke: '#0f172a', width: 2 },
-    TITLE: { stroke: '#0f172a', width: 2 },
-    BLOCKREF: { stroke: '#475569', width: 2, dash: '10 8' }
+    // Preview/PDF renkleri DXF ACI renkleriyle eşleştirildi.
+    OUTLINE: { stroke: '#000000', width: 1.2, aci: 7 },
+    PROFILE: { stroke: '#ff0000', width: 1.25, aci: 1 },
+    FABRIC: { stroke: '#ffbf00', width: 0.9, dash: '14 10', aci: 42 },
+    RAY: { stroke: '#0000ff', width: 1.15, aci: 5 },
+    POST: { stroke: '#ff00ff', width: 1.15, aci: 6 },
+    WALL: { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
+    TOPWALL: { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
+    HATCH_WALL: { stroke: '#808080', width: 0.45, aci: 8 },
+    HATCH_FABRIC: { stroke: '#ffbf00', width: 0.45, aci: 42 },
+    GLASS: { stroke: '#ff00ff', width: 1.05, aci: 6 },
+    TRIANGLE: { stroke: '#00bf00', width: 1.05, aci: 130 },
+    WATER: { stroke: '#0000ff', width: 1.05, aci: 5 },
+    DIM: { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    TEXT: { stroke: '#000000', width: 0.6, aci: 7 },
+    TABLE: { stroke: '#000000', width: 0.7, aci: 7 },
+    TITLE: { stroke: '#000000', width: 0.7, aci: 7 },
+    BLOCKREF: { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 }
   };
-
   // PERI01 LISP'ten web tabanına taşınan ana sabitler.
   const K = {
     showDimensions: true,
@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.34 - PREMIUM PREVIEW / A0 PDF - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.35 - DRAFTSIGHT QUALITY PREVIEW/PDF - 08.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -1452,8 +1452,34 @@
   function bounds(entities, blockLib) { const b = entities.map(e => entityBounds(e, blockLib)); const minX = Math.min(...b.map(x => x[0])), minY = Math.min(...b.map(x => x[1])), maxX = Math.max(...b.map(x => x[2])), maxY = Math.max(...b.map(x => x[3])); return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }; }
   function escXml(s) { return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
-  function previewStrokeWidth(value, minimum = 0.28) {
-    return Math.max(minimum, (Number(value) || 2) * 0.42);
+  const ACI_HEX = {
+    1: '#ff0000',
+    2: '#ffff00',
+    3: '#00ff00',
+    4: '#00ffff',
+    5: '#0000ff',
+    6: '#ff00ff',
+    7: '#000000',
+    8: '#808080',
+    9: '#c0c0c0',
+    10: '#ff0000',
+    42: '#ffbf00',
+    130: '#00bf00',
+    256: null
+  };
+
+  function aciColorToHex(color, fallback = '#000000') {
+    const n = Number(color);
+    if (!Number.isFinite(n) || n === 256 || n === 0) return fallback;
+    return ACI_HEX[n] || fallback;
+  }
+
+  function entityStroke(e, st) {
+    return aciColorToHex(e && e.color, (st && st.stroke) || '#000000');
+  }
+
+  function previewStrokeWidth(value, minimum = 0.55) {
+    return Math.max(minimum, (Number(value) || 1) * 0.85);
   }
 
   function renderSvg(drawing) {
@@ -1472,7 +1498,7 @@
     parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
     for (const e of ents) {
       const st = drawing.layerStyle[e.layer] || drawing.layerStyle.OUTLINE;
-      const stroke = st.stroke;
+      const stroke = entityStroke(e, st);
       const sw = previewStrokeWidth(st.width);
       const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
       if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
@@ -1492,7 +1518,7 @@
       else if (e.type === 'dimension') {
         (e.graphics || []).forEach(ge => {
           const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM;
-          const gstroke = gst.stroke;
+          const gstroke = entityStroke(ge, gst);
           const gsw = previewStrokeWidth(gst.width || sw, 0.24);
           if (ge.type === 'line') parts.push(`<line x1="${sx(ge.x1)}" y1="${sy(ge.y1)}" x2="${sx(ge.x2)}" y2="${sy(ge.y2)}" stroke="${gstroke}" stroke-width="${gsw}" fill="none"/>`);
           else if (ge.type === 'polyline') {
@@ -1510,7 +1536,7 @@
           const group = [];
           (block.entities || []).forEach(be => {
             const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF;
-            const bstroke = bst.stroke;
+            const bstroke = entityStroke(be, { ...bst, stroke: entityStroke(e, bst) });
             const bsw = previewStrokeWidth(bst.width || 2, 0.24);
             if (be.type === 'line') {
               const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
@@ -1559,31 +1585,31 @@
           const beLayer = layer || be.layer || 'BLOCKREF';
           if (be.type === 'line') {
             const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
-            push({ type: 'line', layer: beLayer, x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] });
+            push({ type: 'line', layer: beLayer, color: be.color, x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] });
           } else if (be.type === 'polyline') {
             const pts = (be.points || []).map(p => transformLocalPoint(p[0], p[1], e));
-            push({ type: 'polyline', layer: beLayer, closed: !!be.closed, points: pts });
+            push({ type: 'polyline', layer: beLayer, color: be.color, closed: !!be.closed, points: pts });
           } else if (be.type === 'circle') {
             const p = transformLocalPoint(be.x, be.y, e);
             const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2));
-            push({ type: 'circle', layer: beLayer, x: p[0], y: p[1], r: rr });
+            push({ type: 'circle', layer: beLayer, color: be.color, x: p[0], y: p[1], r: rr });
           } else if (be.type === 'text' || be.type === 'mtext') {
             const p = transformLocalPoint(be.x || 0, be.y || 0, e);
-            push({ ...be, layer: beLayer, x: p[0], y: p[1], height: Math.abs((Number(be.height) || 100) * ((Number(e.scaleX || 1) + Math.abs(Number(e.scaleY || 1))) / 2)), rotation: (Number(be.rotation || 0) + Number(e.rotation || 0)) });
+            push({ ...be, layer: beLayer, color: be.color, x: p[0], y: p[1], height: Math.abs((Number(be.height) || 100) * ((Number(e.scaleX || 1) + Math.abs(Number(e.scaleY || 1))) / 2)), rotation: (Number(be.rotation || 0) + Number(e.rotation || 0)) });
           }
         });
         return;
       }
-      if (e.type === 'line') push({ type: 'line', layer, x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 });
-      else if (e.type === 'polyline') push({ type: 'polyline', layer, closed: !!e.closed, points: (e.points || []).map(p => [p[0], p[1]]) });
-      else if (e.type === 'circle') push({ type: 'circle', layer, x: e.x, y: e.y, r: e.r });
+      if (e.type === 'line') push({ type: 'line', layer, color: e.color, x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 });
+      else if (e.type === 'polyline') push({ type: 'polyline', layer, color: e.color, closed: !!e.closed, points: (e.points || []).map(p => [p[0], p[1]]) });
+      else if (e.type === 'circle') push({ type: 'circle', layer, color: e.color, x: e.x, y: e.y, r: e.r });
       else if (e.type === 'text' || e.type === 'mtext') push({ ...e, layer });
     };
     (drawing.entities || []).forEach(e => expand(e));
     return { entities: out, bounds: bounds(out), layerStyle: drawing.layerStyle || LAYER_STYLE };
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, flattenDrawingForExport, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, flattenDrawingForExport, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput, aciColorToHex };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
