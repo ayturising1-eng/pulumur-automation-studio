@@ -51,10 +51,17 @@
     return out;
   }
 
-  function fixed(value) {
+  function fixed(value, decimals = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) return '0';
-    return Number(n.toFixed(3)).toString();
+    const precision = Math.max(0, Number(decimals) || 0);
+    return Number(n.toFixed(precision)).toString();
+  }
+
+  function fixedScale(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '1';
+    return Number(n.toFixed(6)).toString();
   }
 
   function layerColor(layer) { return COLOR[layer] ?? 7; }
@@ -82,6 +89,8 @@
       pair(9, '$DIMCLRD'), pair(70, 42),
       pair(9, '$DIMCLRE'), pair(70, 42),
       pair(9, '$DIMCLRT'), pair(70, 1),
+      pair(9, '$DIMDEC'), pair(70, 0),
+      pair(9, '$DIMZIN'), pair(70, 8),
       pair(9, '$INSBASE'), pair(10, 0), pair(20, 0), pair(30, 0),
       pair(9, '$EXTMIN'), pair(10, -10000), pair(20, -20000), pair(30, 0),
       pair(9, '$EXTMAX'), pair(10, 12000), pair(20, 6000), pair(30, 0),
@@ -133,6 +142,7 @@
       pair(71, 0), pair(72, 0), pair(73, 0), pair(74, 0), pair(75, 0), pair(76, 0), pair(77, 1), pair(78, 8),
       pair(170, 0), pair(171, 3), pair(172, 1), pair(173, 0), pair(174, 0), pair(175, 0),
       pair(176, 42), pair(177, 42), pair(178, 1),
+      pair(271, 0), pair(272, 0),
       pair(0, 'ENDTAB')
     ];
   }
@@ -264,7 +274,7 @@
       pair(8, cleanText(e.layer || 'BLOCKREF')),
       pair(2, name),
       pair(10, fixed(e.x)), pair(20, fixed(e.y)), pair(30, 0),
-      pair(41, fixed(Math.abs(e.scaleX || 1))), pair(42, fixed(e.scaleY || 1)), pair(43, 1),
+      pair(41, fixedScale(Math.abs(e.scaleX || 1))), pair(42, fixedScale(e.scaleY || 1)), pair(43, 1),
       pair(50, fixed(e.rotation || 0))
     ];
   }

@@ -721,7 +721,40 @@
     });
   }
 
-  function drawTopView(g, d) { drawTopWall(g, d); drawTopRays(g, d); drawTopGutter(g, d); drawTopPosts(g, d); drawTopGlassTrack(g, d); drawTopRoofProfiles(g, d); drawTopTrapezSafeHatch(g, d); /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */ drawTopPergoText(g, d); addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`); if (d.systemCount === 1) addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`); else { systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, 0, -650, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`)); systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, -120, -360, `${formatMm(gap.x2 - gap.x1)}`)); } }
+  function drawTopView(g, d) {
+    drawTopWall(g, d);
+    drawTopRays(g, d);
+    drawTopGutter(g, d);
+    drawTopPosts(g, d);
+    drawTopGlassTrack(g, d);
+    drawTopRoofProfiles(g, d);
+    drawTopTrapezSafeHatch(g, d);
+    /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */
+    drawTopPergoText(g, d);
+
+    addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`);
+
+    if (d.systemCount === 1) {
+      addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
+      return;
+    }
+
+    // Çoklu poz üst görünüş genişlik ölçüleri:
+    // Ölçü çizgisi, oluk profilinin iç kenarından +Y yönüne 500 mm içeride konumlanır.
+    const gutterInnerY = -d.opening + K.topGutterH;
+    const topWidthDimY = gutterInnerY + 500;
+    systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, gutterInnerY, topWidthDimY, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`));
+    systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, gutterInnerY, topWidthDimY, `${formatMm(gap.x2 - gap.x1)}`));
+
+    // Çoklu poz toplam üst genişlik: 1. poz duvar sol dışı ile son poz duvar sağ dışı arası.
+    const firstSystem = d.systems[0];
+    const lastSystem = d.systems[d.systems.length - 1];
+    if (firstSystem && lastSystem) {
+      const totalWallX1 = firstSystem.startX - K.topWallInset;
+      const totalWallX2 = lastSystem.endX + K.topWallInset;
+      addDimH(g, totalWallX1, totalWallX2, 0, 800, `TOPLAM GENİŞLİK ${formatMm(totalWallX2 - totalWallX1)}`);
+    }
+  }
 
   function drawFrontView(g, d) {
     const postXs = postCenterXs(d);
