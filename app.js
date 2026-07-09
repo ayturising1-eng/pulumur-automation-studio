@@ -17,6 +17,32 @@
   const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
   let wrappingFields = false;
   const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
+  const EXCEL_COMBO_OPTIONS = {
+    fabric: [
+      '-',
+      'C 1602 - 3D (8118-1622)',
+      'C 3017 - 3D',
+      'C 3105 - 3D',
+      'C 6001 - 3D',
+      'C 7019 - 3D (8118-7024)',
+      'C 7075 - 3D (8118-7340)',
+      'C 7995 - 3D (8118-7999)',
+      'C 9012 - 3D (8118-9002)',
+      'C 1602 - M (8116-1622)',
+      'C 1638 - M',
+      'C 7009 - M',
+      'C 9012 - M (8116-9002)',
+      'C 1602 - K (8290-1622)',
+      'C 9012 - D (8290-9002)'
+    ]
+  };
+  const REMOTE_OPTIONS_BY_MOTOR = {
+    'RISING MOTOR': ['-', 'RISING 6 CHANNELS'],
+    'SOMFY RTS': ['-', 'SITUO 2 RTS', 'SITUO 5 RTS', 'TELIS 16 RTS'],
+    'SOMFY IO': ['-', 'SITUO 2 IO', 'SITUO 5 IO'],
+    '-': ['-'],
+    '': ['-']
+  };
   const EXCEL_DEFAULT_INPUT = {
     product: 'Pergo Rise', moduleName: 'Module 1', engine: 'Web DXF',
     customer: '', project: '', version: '01', drawnBy: 'AYETULLAH KILINC', date: '',
@@ -36,6 +62,7 @@
       if ($(id) && d[id] !== undefined) $(id).value = d[id];
     });
     if ($('date')) $('date').value = d.date;
+    updateRemoteOptions(false);
     ['rayCount', 'postCount'].forEach(id => {
       if ($(id)) $(id).dataset.userEdited = 'false';
     });
@@ -276,7 +303,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_38-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_39-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -556,10 +583,18 @@ ${err.message}`);
     }
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function optionValuesForInput(input) {
-    const listId = input && input.getAttribute('list');
-    const dl = listId ? document.getElementById(listId) : null;
-    return dl ? Array.from(dl.querySelectorAll('option')).map(o => o.value).filter(Boolean) : [];
+    const key = input && input.dataset ? input.dataset.excelCombo : '';
+    return key && EXCEL_COMBO_OPTIONS[key] ? EXCEL_COMBO_OPTIONS[key] : [];
   }
 
   function closeAllCombos(except) {
@@ -579,7 +614,7 @@ ${err.message}`);
     const current = String(input.value || '').trim().toLocaleUpperCase('tr-TR');
     menu.innerHTML = values.map(v => {
       const selected = String(v).trim().toLocaleUpperCase('tr-TR') === current ? ' selected' : '';
-      return `<button type="button" class="excel-combo-option${selected}" data-value="${String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}">${String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</button>`;
+      return `<button type="button" class="excel-combo-option${selected}" data-value="${escapeHtml(v)}">${escapeHtml(v)}</button>`;
     }).join('') || '<div class="excel-combo-empty">Liste yok</div>';
     menu.querySelectorAll('.excel-combo-option').forEach(btn => {
       btn.addEventListener('mousedown', evt => evt.preventDefault());
@@ -594,7 +629,7 @@ ${err.message}`);
   }
 
   function enhanceExcelCombos() {
-    document.querySelectorAll('input[list]').forEach(input => {
+    document.querySelectorAll('input[data-excel-combo]').forEach(input => {
       if (input.closest('.excel-combo')) return;
       const box = document.createElement('div');
       box.className = 'excel-combo';
@@ -637,6 +672,29 @@ ${err.message}`);
     });
   }
 
+  function updateRemoteOptions(preserve = true) {
+    const motorEl = $('motor');
+    const remoteEl = $('remote');
+    if (!motorEl || !remoteEl) return;
+    const key = String(motorEl.value || '-').trim().toLocaleUpperCase('tr-TR');
+    const options = REMOTE_OPTIONS_BY_MOTOR[key] || ['-'];
+    const previous = preserve ? String(remoteEl.value || '-') : '-';
+    remoteEl.innerHTML = options.map(v => `<option>${escapeHtml(v)}</option>`).join('');
+    remoteEl.value = options.includes(previous) ? previous : '-';
+  }
+
+  function bindStrictInputs() {
+    const numericOnly = id => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const clean = String(el.value || '').replace(/[^0-9]/g, '');
+        if (el.value !== clean) el.value = clean;
+      });
+    };
+    numericOnly('parapetHeight');
+  }
+
   function bindEvents() {
     $('generateBtn').addEventListener('click', generateDxf);
     $('pdfBtn').addEventListener('click', () => { void generatePdf(); });
@@ -646,6 +704,7 @@ ${err.message}`);
     $('fitPreviewBtn').addEventListener('click', fitPreview);
     $('calcBtn').addEventListener('click', openCalculator);
     $('helpBtn').addEventListener('click', showHelp);
+    $('motor').addEventListener('change', () => { updateRemoteOptions(true); updatePreview(); });
     $('calcComputeBtn').addEventListener('click', () => {
       try { calculateMissing(); } catch (err) { $('calcResult').textContent = err.message; }
     });
@@ -680,6 +739,7 @@ ${err.message}`);
   document.addEventListener('fullscreenchange', () => { window.setTimeout(() => applyPreviewScale(), 60); syncExpandButton(); });
   bindPreviewInteractions();
   enhanceExcelCombos();
+  bindStrictInputs();
   fillInitial();
   bindEvents();
   updatePreview();
