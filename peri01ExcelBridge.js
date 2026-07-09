@@ -36,7 +36,57 @@
     calcHeightCorrection: 278
   };
 
-  const HELP_TEXT = "KULLANIM KILAVUZU\nPülümür Automation Studio; ürün türü, ürün modülü, sistem ölçüleri, poz bilgileri ve proje detaylarını esas alarak otomatik teknik çizim oluşturan bir çizim hazırlama aracıdır.\nGirilen bilgilere göre ilgili çizim motoru çalıştırılır, teknik çizim oluşturulur ve proje klasörüne kaydedilir.\nGENEL PROGRAM MANTIĞI\nProgram içinde renkli olan ve üzerinde ok işareti bulunan hücreler buton olarak kullanılır.\nÜzerinde \nBu butonlar çizim oluşturma, klasör açma, hücreleri sıfırlama ve programdan çıkış gibi işlemler için kullanılır.\nMüşteri adı ve proje adı, programın klasör ve dosya oluşturma mantığında kullanılır.\nProgram, müşteri adı ve proje adına göre otomatik klasör oluşturur.\nOluşturulan çizim dosyaları bu proje klasörüne kaydedilir.\nSistem ile ilgili ölçüler, ürün bilgileri ve proje bilgileri girildikten sonra Çizim Oluştur butonuna basılır.\nÇizim Oluştur butonuna basıldığında program ilgili çizim motorunu açar.\nSeçilen çizim motoruna göre AutoCAD veya DraftSight çalıştırılır.\nProgram çizimi otomatik olarak oluşturur ve dosyayı farklı kaydeder.\nAutoCAD ile çalışıldığında DWG dosyasına ek olarak PDF çıktısı da oluşturulur.\nDraftSight ile çalışıldığında DWG dosyası oluşturulur; PDF çıktısı program tarafından otomatik oluşturulmaz.\nKURULUM VE DOSYA YAPISI\nBu sürümde AutoCAD LISP, DraftSight LISP, pulumurapp.dwg referans çizimi ve pdftotext.exe aracı Excel dosyasının içine gömülü kaynak olarak eklenmiştir.\nExcel dosyası masaüstünde, indirilenler klasöründe, ağ klasöründe veya kullanıcı tarafından seçilen herhangi bir klasörde tek başına çalışabilir.\nÇizim veya PDF içe aktarma işlemi için LISP, pulumurapp.dwg veya pdftotext.exe dosyalarının ayrıca dış klasöre kopyalanmasına gerek yoktur.\nÇizim başlatıldığında program, Excel içindeki gömülü LISP ve gömülü pulumurapp.dwg dosyasını otomatik olarak geçici çalışma klasörüne çıkarır.\nAutoCAD veya DraftSight bu geçici dosyaları kullanarak çizimi oluşturur ve çıktı DWG / PDF dosyalarını Excel dosyasının bulunduğu konuma göre oluşturulan proje klasörüne kaydeder.\nProgramın gömülü kaynak yapısında kullanıcı normal kullanım sırasında LISP, referans DWG veya pdftotext.exe dosyalarını görmez ve ayrıca kopyalamak zorunda kalmaz.\nKaynak dosyalar çalışma sırasında geçici klasöre çıkarılır; işlem tamamlandıktan sonra program bu dosyaları temizleyebilir.\nBu yapı kaynak dosyaların yanlışlıkla silinmesini, adının değiştirilmesini veya başka klasöre taşınmasını önlemek için kullanılır.\nDraftSight ve AutoCAD çizim motorları aynı ürün verilerini kullanır; ancak LISP dosyaları ve komut altyapıları farklıdır.\nBu nedenle AutoCAD için hazırlanmış gömülü LISP yalnızca AutoCAD çizim motoru ile, DraftSight için hazırlanmış gömülü LISP yalnızca DraftSight çizim motoru ile kullanılmalıdır.\nAutoCAD ve DraftSight programlarının bilgisayarda kurulu olması gerekir.\nHer bilgisayarda AutoCAD ve DraftSight kurulum yolu farklı olabilir. Çizim motoru açılmıyorsa ilgili makro içindeki AutoCAD / DraftSight exe yolu kontrol edilmelidir.\nİleride dinamik yol ayarlama modülü kullanılırsa, bu yollar makro koduna girmeden ayar sayfasından güncellenebilir.\npulumurapp.dwg referans çizimi veya LISP dosyaları zaman içinde güncellenirse, gömülü kaynakların da güncellenmesi gerekir.\nBu sürümde sadece dış klasöre yeni LISP veya yeni pulumurapp.dwg dosyası koymak mevcut gömülü kaynağı değiştirmez.\nGüncel dosyalar Excel içine tekrar gömülerek yeni sürüm oluşturulmalıdır.\npdftotext.exe aracı da PDF formu içe aktarma işlemi için Excel içine gömülüdür.\nPDF içe aktar butonu kullanıldığında program bu aracı geçici klasöre çıkarır ve seçilen müşteri PDF formunu metne çevirir.\nAntivirüs veya Windows güvenlik sistemi geçici klasöre çıkarılan pdftotext.exe dosyasını engellerse PDF içe aktarma işlemi tamamlanmayabilir.\nÇizim oluşturma işlemi devam ederken Excel, AutoCAD veya DraftSight üzerinde farklı bir işlem yapılmamalıdır.\nProgram çizimi tamamlayıp dosyayı kaydedene kadar beklenmelidir.\nPDF / DWG Klasörü butonu, çizimin kaydedildiği klasörü doğrudan açmak için kullanılır.\nBu butona basıldığında oluşturulan çizim dosyalarının bulunduğu klasör ekranda açılır.\nHücre Değerlerini Resetle butonu, programı açılış ekranındaki varsayılan durumuna getirir.\nBu işlemden sonra sistem ölçüleri ve proje giriş alanları yeniden doldurulabilir.\nÇıkış butonu programı kapatmak için kullanılır.\nİşlem tamamlandıktan sonra Çıkış butonuna basarak programdan çıkabilirsiniz.\nMÜŞTERİ PDF FORMU İÇE AKTARMA\nPDF İçe Aktar butonu, müşteriden gelen PDF formundaki bilgileri okuyarak ilgili Excel hücrelerine aktarmak için kullanılır.\nBu işlem için gerekli pdftotext.exe aracı Excel içine gömülüdür; ayrıca dışarıya pdftotext.exe dosyası koymak veya Pulumur_Resources klasörü oluşturmak gerekmez.\nProgram seçilen PDF dosyasını önce geçici TXT dosyasına çevirir, sonra PDF içindeki alanları okuyarak müşteri adı, proje adı, ölçüler, renkler, motor, kumanda, aydınlatma ve not bilgilerini ilgili hücrelere yazar.\nPDF aktarımından sonra hücreler kontrol edilmelidir. PDF içeriği müşteri tarafından hatalı veya eksik doldurulmuşsa çizim oluşturmadan önce Excel hücreleri manuel olarak düzeltilmelidir.\nPDF içe aktarma işlemi çizimi otomatik başlatmaz; sadece formdaki bilgileri Excel'e aktarır. Kontrolden sonra Çizim Oluştur butonu kullanılmalıdır.\nÜrün: Pergo Rise Module 1\nAşağıda Pergo Rise Module 1 ürünü için veri giriş mantığı ve programın çalışma şekli açıklanmaktadır.\n1. PROJE BİLGİLERİ\nMüşteri adı ve proje adı mutlaka girilmelidir.\nBu bilgiler çizim klasörü ve dosya isimlerinin oluşturulmasında kullanılır.\nMüşteri adı ve proje adı dosya / klasör isminde kullanılacağı için / \\ : * ? \" < > | gibi Windows tarafından kabul edilmeyen karakterler kullanılmamalıdır.\nBu karakterler kullanılırsa program proje klasörünü veya çıktı dosyasını oluşturamayabilir.\n2. ÖLÇÜ GİRİŞ MANTIĞI\nSistem ölçülerini ilgili hücrelere girin.\nBirden fazla poz varsa değerleri noktalı virgül (;) ile ayırın.\nÖrnek: 4000;6000;8000\nBu durumda:\n1. değer 1. poza,\n2. değer 2. poza,\n3. değer 3. poza ait olur.\nTek yazılan değer tüm pozlar için ortak kabul edilir.\nÖrnek: Sistem Açısı: 10\nBu değer tüm pozlarda 10 derece olarak kullanılır.\nBirden fazla poz kullanılıyorsa, pozlara özel girilen değerlerin sayısı sistem adediyle uyumlu olmalıdır.\nTek değer girilirse tüm pozlarda ortak kullanılır.\nNoktalı virgül ile birden fazla değer girilirse değer sırası poz sırasına göre okunur.\nÖrnek: Açılım: 4000;6000;8000 yazıldığında 1. değer 1. poza, 2. değer 2. poza, 3. değer 3. poza uygulanır.\n3. SİSTEM ADEDİ VE GENİŞLİK MANTIĞI\nSistem adedi ve genişlik bilgileri, çizimdeki sistemlerin yatay yerleşimini belirler.\nGenişlik değeri tek yazılırsa program bu değeri toplam genişlik olarak kabul eder.\nÖrnek:\nToplam Genişlik: 8000\nSistem Adedi: 4\nBu durumda program toplam genişliği sistem adedine göre otomatik böler.\nHer sistem 2000 mm olarak kabul edilir.\nGenişlikler noktalı virgül ile ayrılırsa, her sistem kendi genişliğine göre çizilir.\nBu durumda sistemler arası boşluklar program tarafından otomatik hesaplanır ve çizim buna göre oluşturulur.\nÖrnek:\nGenişlik: 2000;2500;1800;2200\nSistem Adedi: 4\nBu örnekte 4 sistem kendi genişliklerine göre çizilir.\nSistemler arasındaki boşluklar program tarafından otomatik dağıtılır.\nGenişlik değerlerinin sonunda ;NO yazılırsa otomatik boşluk hesaplama kapatılır.\nBu modda tek sıradaki değerler sistem genişliklerini, çift sıradaki değerler ise iki sistem arasındaki boşlukları ifade eder.\nÖrnek:\nGenişlik: 2000;50;2500;80;1800;60;2200;NO\nSistem Adedi: 4\nBu durumda:\n1. değer = 1. sistem genişliği: 2000 mm\n2. değer = 1. ve 2. sistem arası boşluk: 50 mm\n3. değer = 2. sistem genişliği: 2500 mm\n4. değer = 2. ve 3. sistem arası boşluk: 80 mm\n5. değer = 3. sistem genişliği: 1800 mm\n6. değer = 3. ve 4. sistem arası boşluk: 60 mm\n7. değer = 4. sistem genişliği: 2200 mm\nYani ;NO kullanılmadığında sistem arası boşlukları program otomatik hesaplar.\n;NO kullanıldığında ise sistem genişlikleri ve sistem arası boşluklar kullanıcı tarafından elle tanımlanır.\n;NO modunda son değer mutlaka NO olmalıdır.\nNO ifadesi genişlik veya boşluk değeri olarak değerlendirilmez; sadece otomatik boşluk hesabını kapatmak için kullanılır.\nRAY SAYISI VE DİKME SAYISI OTOMATİK HESAPLAMA\nBitişik sistem adedi ve genişlik değeri girildiğinde, program ray sayısını ve dikme sayısını otomatik hesaplar.\nBu nedenle ray sayısı ve dikme sayısı alanları manuel girilmek zorunda değildir.\nRay sayısı, her sistemin genişliğine göre otomatik belirlenir.\n0 - 4000 mm arası genişliklerde 2 ray kullanılır.\n4001 - 8000 mm arası genişliklerde 3 ray kullanılır.\n8001 - 12000 mm arası genişliklerde 4 ray kullanılır.\nTek sistemlerde dikme sayısı, ray sayısı ile aynı kabul edilir.\nBitişik sistemlerde ise yan yana gelen raylar ortak aks kabul edilir.\nBu nedenle bitişik sistemlerde dikme sayısı şu mantıkla hesaplanır:\nDikme Sayısı = Toplam Ray Sayısı - (Poz Sayısı - 1)\nÖrnek:\nGenişlik: 3000;5000;9000\nRay Sayısı: 2;3;4\nToplam Ray Sayısı: 9\nPoz Sayısı: 3\nDikme Sayısı: 9 - (3 - 1) = 7\nEğer bitişik sistem adedi 1'den fazla yazılır ve genişlik tek değer olarak girilirse, bu değer toplam genişlik kabul edilir.\nBu durumda program önce bir sistemin net genişliğini hesaplar.\nBir Sistem Genişliği = (Toplam Genişlik - ((Sistem Adedi - 1) x 13)) / Sistem Adedi\nÖrnek:\nToplam Genişlik: 8000\nSistem Adedi: 4\nBir Sistem Genişliği = (8000 - ((4 - 1) x 13)) / 4\nBir Sistem Genişliği = 1990.25 mm\nBu genişlik 4000 mm altında olduğu için ray sayısı 2 olur.\nToplam Ray Sayısı = 2 x 4 = 8\nDikme Sayısı = 8 - (4 - 1) = 5\nGenişlik birden fazla poz olarak yazıldıysa, ray sayısı da pozlara göre noktalı virgül ile otomatik ayrılır.\nÖrnek: Genişlik: 3500;6000;9500\nSonuç Ray Sayısı: 2;3;4\nGenişlik sonunda ;NO kullanılırsa, sadece tek sıradaki değerler sistem genişliği olarak hesaplanır.\nÇift sıradaki değerler sistem arası boşluk kabul edilir ve ray hesabına dahil edilmez.\nÖrnek: Genişlik: 2000;50;2500;80;6000;NO\nBu örnekte 2000, 2500 ve 6000 sistem genişlikleridir.\n50 ve 80 ise sistem arası boşluklardır.\nSonuç Ray Sayısı: 2;2;3\nBitişik sistem adedi veya genişlik hücresi silinirse, ray sayısı ve dikme sayısı alanları da otomatik temizlenir.\n4. AÇILIM VE YÜKSEKLİK MANTIĞI\nAçılımları farklı olan ürünlerde ön yükseklikler aynı yatay aks üzerinde hizalanır.\nÖn yükseklik tek değer yazılırsa, bu değer tüm pozlar için ortak kabul edilir.\nÖrnek:\nAçılım: 4000;6000;8000\nArka Yükseklik: 3100;3400;3750\nÖn Yükseklik: 2600\nBu durumda ön yükseklik tüm pozlarda 2600 kabul edilir.\nSistemler önde aynı hatta hizalanır, arka yükseklikler ise açılıma göre farklı olabilir.\n5. RAY SAYISI\nRay sayısı, bitişik sistem adedi ve genişlik değerine göre program tarafından otomatik hesaplanır.\nBirden fazla poz varsa ray sayısı da pozlara göre noktalı virgül ile otomatik ayrılır.\nGerekli durumlarda kullanıcı ray sayısı alanını manuel olarak da düzenleyebilir.\nRay sayısı alanı manuel doldurulursa program bu değeri esas alır.\nRay sayısı alanı boş bırakılırsa genişlik ve sistem adedine göre otomatik hesaplama yapılır.\n6. DİKME SAYISI\nDikme sayısı, hesaplanan ray sayıları ve poz sayısı dikkate alınarak otomatik hesaplanır.\nBitişik sistemlerde yan yana gelen raylar ortak aks kabul edildiği için birleşim noktalarında tek dikme kullanılır.\nGerekli durumlarda kullanıcı dikme sayısı alanını manuel olarak da düzenleyebilir.\nDikme sayısı alanı manuel doldurulursa program bu değeri esas alır.\nDikme sayısı alanı boş bırakılırsa ray sayısı ve poz sayısına göre otomatik hesaplama yapılır.\n7. PARAPET\nParapet seçeneği sadece ön taraf için çizilir.\nParapet varsa ön görünüş ve yan görünüş ölçüleri buna göre düzenlenir.\n8. CAM KAYDI\nCam kaydı seçildiğinde program yanlarda 100x100 profil çizer.\nCam kaydı verildiğinde sistem ölçüleri otomatik olarak buna göre düzenlenir.\n9. SU ÇIKIŞI STANDART MI?\n\"Evet\" seçilirse, su çıkışı dikmelerden alınacak şekilde standart çizim yapılır.\n\"Hayır\" seçilirse, su çıkışı oluk üzerinden alınacak şekilde çizime Ø70 boru detayı eklenir.\n10. ÇOKLU HESAPLAYICI\nÇoklu hesaplayıcıda 4 satırdan 3 tanesi doldurulur.\nBoş bırakılan satır otomatik hesaplanır.\nBağlı değerler:\n- Sistem Açısı\n- Açılım\n- Arka Yükseklik\n- Ön Yükseklik / Oluk Altı\nBirden fazla poz için değerler noktalı virgül (;) ile ayrılır.\nÖrnek:\nSistem Açısı: 10\nAçılım: 4000;6000;8000\nArka Yükseklik: 3100;3400;3750\nÖn Yükseklik: boş bırakılır\nProgram ön yükseklikleri pozlara göre hesaplar ve sonucu noktalı virgül ile ayırarak yazar.\n11. ÇİZİM OLUŞTURMA\nTüm bilgiler girildikten sonra Çizim Oluştur butonuna basılır.\nProgram ilgili çizim motorunu açar, teknik çizimi oluşturur ve dosyayı proje klasörüne farklı kaydeder.\nAutoCAD seçiliyse DWG dosyasına ek olarak PDF çıktısı da oluşturulur.\nDraftSight seçiliyse DWG dosyası oluşturulur; PDF çıktısı otomatik oluşturulmaz.\nÇizim tamamlandıktan sonra PDF / DWG Klasörü butonu ile çizimin kaydedildiği klasör doğrudan açılabilir.\nYeni bir proje girişi için Hücre Değerlerini Resetle butonu kullanılabilir.\nÇizim tamamlandığında proje klasörü içinde DWG dosyası oluşturulur.\nAutoCAD motoru seçildiyse aynı klasörde PDF çıktısı da oluşturulur.\nPDF / DWG Klasörü butonu ile bu klasör doğrudan açılabilir.\nSORUN GİDERME\nÇizim oluşmuyorsa aşağıdaki kontroller yapılmalıdır:\n- Ürün ve çizim motoru seçiminin doğru olduğundan emin olun.\n- Müşteri adı ve proje adının girildiğini kontrol edin.\n- AutoCAD veya DraftSight programının bilgisayarda kurulu olduğundan ve ilgili exe yolunun doğru olduğundan emin olun.\n- Bu sürümde LISP ve pulumurapp.dwg Excel içine gömülüdür; dış klasörde bu dosyaları aramanıza gerek yoktur.\n- Gömülü kaynak geçici klasöre çıkarılamıyorsa antivirüs, Windows izinleri veya açık kalan AutoCAD / DraftSight işlemleri kontrol edilmelidir.\n- Dosya veya klasör adlarında geçersiz karakter bulunmadığını kontrol edin.\n- Çizim motoru açıkken komut satırında hata mesajı oluşup oluşmadığını kontrol edin.\n- PDF içe aktarma çalışmıyorsa gömülü pdftotext.exe dosyasının geçici klasöre çıkarılmasına antivirüsün izin verdiğinden emin olun.\nProgramdan çıkmak için Çıkış butonu kullanılır.";
+  const HELP_TEXT = `WEB KULLANIM KILAVUZU
+Pülümür Automation Studio web sürümü Pergo Rise Module 1 için DXF ve A0 PDF üretir. Form Excel Sayfa1 mantığına göre çalışır; turuncu hücre karşılığı olan alanlarda listeden seçim yapabilir veya aynı kutuya manuel değer yazabilirsiniz.
+
+1) TEMEL KULLANIM
+- Müşteri ve proje bilgilerini girin.
+- Sistem adedi, genişlik, açılım, arka yükseklik ve ön yükseklik alanlarını doldurun.
+- Önizleme otomatik güncellenir. DXF Oluştur ve İndir veya PDF Oluştur ve İndir butonlarını kullanın.
+- Değerleri Resetle, formu Excel açılış/default haline döndürür.
+
+2) AÇILIR LİSTE + MANUEL YAZMA
+- Parapet, Cam Kaydı, Üçgen Doğrama, Su Çıkışı, Motor, Remote gibi alanlarda sağdaki ok butonu listeyi açar.
+- Listede olmayan değer gerekiyorsa kutuya doğrudan manuel yazabilirsiniz.
+- Yazılan metinler çizimde üst tabloya aktarılır.
+
+3) ÇOKLU POZ GİRİŞİ
+- Birden fazla poz için değerleri noktalı virgül (;) ile ayırın.
+- Örnek genişlik: 3929;7995;6429
+- Örnek açılım: 4500;6000;5750
+- Tek değer yazılırsa tüm pozlar için ortak kabul edilir.
+
+4) ;NO MODU
+- Genişlik sonunda ;NO varsa sistem arası boşlukları kullanıcı belirler.
+- Format: Gen1;Boşluk1;Gen2;Boşluk2;Gen3;NO
+- Bu modda tek sıradaki değerler sistem genişliği, çift sıradaki değerler ara boşluktur.
+
+5) RAY VE DİKME OTOMATİK HESABI
+- Ray sayısı otomatik hesaplanır: 0-4000 mm = 2 ray, 4001-8000 mm = 3 ray, 8001-12000 mm = 4 ray.
+- Dikme sayısı = Toplam Ray Sayısı - (Poz Sayısı - 1).
+- Ray veya dikme sayısını manuel yazarsanız girilen değer esas alınır.
+- Ön yükseklik 0 ise dikme sayısı otomatik 0 yapılır.
+
+6) CAM KAYDI ETKİSİ
+- Cam Kaydı EVET olduğunda ray dıştan dış yerleşim alanı daralır.
+- Otomatik ray hesabı ham genişliği değil, çizimdeki efektif ray dıştan dış ölçüsünü esas alır.
+- Örnek: Genişlik 8060 ve Cam Kaydı EVET ise ray hesabında efektif ölçü yaklaşık 7940 mm kabul edilir; bu nedenle 3 ray gelir.
+- Çoklu pozlarda ve ;NO modunda bu kural poz bazlı uygulanır.
+
+7) ÖNİZLEME
+- Mouse tekerleği ile yakınlaş / uzaklaş.
+- Sol tık basılı sürükleyerek çizim üzerinde gez.
+- Çift tık hızlı zoom yapar.
+- Çizimi Sığdır butonu görünümü tekrar ekrana oturtur.
+
+8) PDF VE DXF
+- DXF çizim verisini indirir.
+- PDF çıktısı A0 boyutunda, vektörel ve DXF renklerine uyumlu oluşturulur.
+
+9) DİKKAT
+- Sayısal değerlerde mm birimi kabul edilir.
+- Birden fazla değer yazarken sadece noktalı virgül (;) kullanın.
+- ;NO modunda son token mutlaka NO olmalıdır.`
 
   function trUpper(s) {
     return String(s ?? '')
@@ -105,6 +155,18 @@
     return 4;
   }
 
+  function isYesValue(value) {
+    return ['EVET', 'YES', 'E', 'Y'].includes(trUpper(value));
+  }
+
+  function effectiveRayWidthForAuto(width, glassTrackRaw) {
+    const w = Number(width) || 0;
+    if (w <= 0) return 0;
+    // Web DXF çiziminde cam kaydı açıkken rayların dıştan dış yerleşim alanı yan profillerden dolayı daralır.
+    // Otomatik ray hesabı da ham G8 genişliği yerine bu efektif ray dıştan dış ölçüsünü esas alır.
+    return Math.max(0, isYesValue(glassTrackRaw) ? w - 120 : w);
+  }
+
   function postCountFromRayText(rayTextRaw, systemCountRaw, widthRaw, frontHeightRaw) {
     const rayText = String(rayTextRaw ?? '').trim();
     if (!rayText) return '';
@@ -134,7 +196,7 @@
     return Math.max(0, postCount);
   }
 
-  function autoRayPostCount(systemCountRaw, widthRaw, frontHeightRaw) {
+  function autoRayPostCount(systemCountRaw, widthRaw, frontHeightRaw, glassTrackRaw) {
     const systemCount = Math.max(1, Math.round(firstNumericToken(systemCountRaw) || 1));
     const widthText = String(widthRaw ?? '').trim();
     if (!widthText) return { rayText: '', postCount: '', rayList: [], positionCount: 0 };
@@ -144,17 +206,17 @@
     if (noMode) {
       const parts = noGapParts(widthText);
       for (let i = 0; i < parts.length; i += 2) {
-        rayList.push(rayCountForWidth(numericToken(parts[i])));
+        rayList.push(rayCountForWidth(effectiveRayWidthForAuto(numericToken(parts[i]), glassTrackRaw)));
       }
     } else {
       const parts = splitSemi(widthText);
       if (parts.length <= 1) {
         const totalW = firstNumericToken(widthText);
         const oneW = systemCount > 1 ? (totalW - ((systemCount - 1) * SAYFA1_DEFAULTS.normalSystemGapForAutoRay)) / systemCount : totalW;
-        const ray = rayCountForWidth(oneW);
+        const ray = rayCountForWidth(effectiveRayWidthForAuto(oneW, glassTrackRaw));
         rayList = Array.from({ length: systemCount }, () => ray);
       } else {
-        rayList = parts.map(t => rayCountForWidth(numericToken(t)));
+        rayList = parts.map(t => rayCountForWidth(effectiveRayWidthForAuto(numericToken(t), glassTrackRaw)));
       }
     }
 
@@ -227,7 +289,7 @@
   }
 
   function buildSayfa1Data(raw) {
-    const auto = autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight);
+    const auto = autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight, raw.glassTrack);
     // Excel mantığı: ray sayısı boşsa genişlikten otomatik hesaplanır;
     // kullanıcı 3;2;4 gibi manuel yazdıysa bu değer aynen esas alınır.
     const rayManual = String(raw.rayCount ?? '').trim();

@@ -46,7 +46,7 @@
     const br = window.PulumurExcelBridge;
     if (!br || typeof br.autoRayPostCount !== 'function') return;
     const raw = collectForm();
-    const auto = br.autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight);
+    const auto = br.autoRayPostCount(raw.systemCount, raw.width, raw.frontHeight, raw.glassTrack);
     const rayEl = $('rayCount');
     const postEl = $('postCount');
     const rayWasManual = rayEl && rayEl.dataset.userEdited === 'true';
@@ -276,7 +276,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_37-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_38-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -556,6 +556,87 @@ ${err.message}`);
     }
   }
 
+  function optionValuesForInput(input) {
+    const listId = input && input.getAttribute('list');
+    const dl = listId ? document.getElementById(listId) : null;
+    return dl ? Array.from(dl.querySelectorAll('option')).map(o => o.value).filter(Boolean) : [];
+  }
+
+  function closeAllCombos(except) {
+    document.querySelectorAll('.excel-combo.open').forEach(box => {
+      if (box !== except) box.classList.remove('open');
+    });
+  }
+
+  function buildComboMenu(input, box) {
+    let menu = box.querySelector('.excel-combo-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.className = 'excel-combo-menu';
+      box.appendChild(menu);
+    }
+    const values = optionValuesForInput(input);
+    const current = String(input.value || '').trim().toLocaleUpperCase('tr-TR');
+    menu.innerHTML = values.map(v => {
+      const selected = String(v).trim().toLocaleUpperCase('tr-TR') === current ? ' selected' : '';
+      return `<button type="button" class="excel-combo-option${selected}" data-value="${String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}">${String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</button>`;
+    }).join('') || '<div class="excel-combo-empty">Liste yok</div>';
+    menu.querySelectorAll('.excel-combo-option').forEach(btn => {
+      btn.addEventListener('mousedown', evt => evt.preventDefault());
+      btn.addEventListener('click', () => {
+        input.value = btn.dataset.value || '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        box.classList.remove('open');
+        input.focus();
+      });
+    });
+  }
+
+  function enhanceExcelCombos() {
+    document.querySelectorAll('input[list]').forEach(input => {
+      if (input.closest('.excel-combo')) return;
+      const box = document.createElement('div');
+      box.className = 'excel-combo';
+      const parent = input.parentNode;
+      parent.insertBefore(box, input);
+      box.appendChild(input);
+      input.setAttribute('autocomplete', 'off');
+      input.classList.add('excel-combo-input');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'excel-combo-button';
+      btn.setAttribute('aria-label', 'Listeyi aç');
+      btn.textContent = '▾';
+      box.appendChild(btn);
+      const toggle = () => {
+        const willOpen = !box.classList.contains('open');
+        closeAllCombos(box);
+        if (willOpen) {
+          buildComboMenu(input, box);
+          box.classList.add('open');
+        } else {
+          box.classList.remove('open');
+        }
+      };
+      btn.addEventListener('click', evt => { evt.preventDefault(); toggle(); });
+      input.addEventListener('focus', () => buildComboMenu(input, box));
+      input.addEventListener('keydown', evt => {
+        if (evt.key === 'ArrowDown' && evt.altKey) {
+          evt.preventDefault();
+          closeAllCombos(box);
+          buildComboMenu(input, box);
+          box.classList.add('open');
+        } else if (evt.key === 'Escape') {
+          box.classList.remove('open');
+        }
+      });
+    });
+    document.addEventListener('click', evt => {
+      if (!evt.target.closest('.excel-combo')) closeAllCombos(null);
+    });
+  }
+
   function bindEvents() {
     $('generateBtn').addEventListener('click', generateDxf);
     $('pdfBtn').addEventListener('click', () => { void generatePdf(); });
@@ -587,7 +668,7 @@ ${err.message}`);
             if (br && br.postCountFromRayText) $('postCount').value = br.postCountFromRayText(el.value, raw.systemCount, raw.width, raw.frontHeight);
           }
         }
-        if (['systemCount', 'width', 'frontHeight'].includes(id)) {
+        if (['systemCount', 'width', 'frontHeight', 'glassTrack'].includes(id)) {
           applyAutoRayPost(false);
         }
         window.clearTimeout(el._previewTimer);
@@ -598,6 +679,7 @@ ${err.message}`);
 
   document.addEventListener('fullscreenchange', () => { window.setTimeout(() => applyPreviewScale(), 60); syncExpandButton(); });
   bindPreviewInteractions();
+  enhanceExcelCombos();
   fillInitial();
   bindEvents();
   updatePreview();
