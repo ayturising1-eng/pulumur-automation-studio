@@ -1283,7 +1283,7 @@ legend,
 }
 
 
-/* V8.2.55: Antrasit gri + beyaz, Chrome gece modu benzeri sakin tema */
+/* V8.2.56: Antrasit gri + beyaz, Chrome gece modu benzeri sakin tema */
 :root {
   --theme-anthracite: #202124;
   --theme-anthracite-2: #2b2f33;
@@ -1421,7 +1421,7 @@ label em {
 }
 
 
-/* V8.2.55: Calculator guide tek dil + alt sonuç bilgi kutusu gizlendi */
+/* V8.2.56: Calculator guide tek dil + alt sonuç bilgi kutusu gizlendi */
 .calc-guide {
   grid-template-columns: 1fr !important;
   max-width: none;
@@ -1436,7 +1436,7 @@ label em {
 }
 
 
-/* V8.2.55: PDF / Download PDF butonu Subaru mavisi */
+/* V8.2.56: PDF / Download PDF butonu Subaru mavisi */
 #pdfBtn {
   background: #004c99 !important;
   color: #ffffff !important;
@@ -1446,7 +1446,7 @@ label em {
 }
 
 
-/* V8.2.55: *(mm) ve uyarı etiketleri koyu net kırmızı + Add to Home Screen */
+/* V8.2.56: *(mm) ve uyarı etiketleri koyu net kırmızı + Add to Home Screen */
 #legendSystem b,
 label b,
 label em,
@@ -1496,4 +1496,27 @@ label em {
 }
 .lang-picker span {
   min-width: 76px !important;
+}
+
+
+/* V8.2.56: Uygulama modunda install butonu gizlenir; sistem uyarı etiketleri 1 punto küçültüldü */
+#installBtn[hidden] {
+  display: none !important;
+}
+
+#labelFrontHeight em,
+#labelRayCount b,
+#labelPostCount b {
+  font-size: 11px !important;
+  line-height: 1 !important;
+  font-weight: 1000 !important;
+  color: #b00000 !important;
+}
+
+@media (max-height: 850px) {
+  #labelFrontHeight em,
+  #labelRayCount b,
+  #labelPostCount b {
+    font-size: 10px !important;
+  }
 }

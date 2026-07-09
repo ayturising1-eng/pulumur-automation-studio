@@ -224,17 +224,33 @@
   function setupPwaInstall() {
     const btn = $('installBtn');
     if (!btn) return;
-    btn.hidden = false;
+
+    const isStandalone = () =>
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+
+    const syncInstallButton = () => {
+      btn.hidden = isStandalone();
+    };
+
+    syncInstallButton();
+
     window.addEventListener('beforeinstallprompt', evt => {
       evt.preventDefault();
       deferredInstallPrompt = evt;
-      btn.hidden = false;
+      syncInstallButton();
     });
+
     btn.addEventListener('click', async () => {
+      if (isStandalone()) {
+        btn.hidden = true;
+        return;
+      }
       if (deferredInstallPrompt) {
         deferredInstallPrompt.prompt();
         try { await deferredInstallPrompt.userChoice; } catch (e) {}
         deferredInstallPrompt = null;
+        syncInstallButton();
         return;
       }
       const isEn = currentLanguage === 'en';
@@ -242,12 +258,22 @@
         ? 'To use it like an app: open the browser menu and choose “Install app” or “Add to Home screen”.'
         : 'Uygulama gibi kullanmak için tarayıcı menüsünden “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğini kullan.');
     });
-    window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      btn.hidden = true;
+    });
+
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(display-mode: standalone)');
+      if (mq && typeof mq.addEventListener === 'function') mq.addEventListener('change', syncInstallButton);
+      else if (mq && typeof mq.addListener === 'function') mq.addListener(syncInstallButton);
+    }
+
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.55').catch(() => {}), { once: true });
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.56').catch(() => {}), { once: true });
     }
   }
-
 
   function fillInitial() {
     const d = { ...EXCEL_DEFAULT_INPUT, date: today() };
@@ -502,7 +528,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_55-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_56-v${drawing.input.version}`);
   }
 
   function generateDxf() {
