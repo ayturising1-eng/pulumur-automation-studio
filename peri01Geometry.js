@@ -69,7 +69,7 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.40 - DROPDOWN TABLE FIX - 08.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.2.47 - INPUT FILTER LANGUAGE HELP - 09.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {

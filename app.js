@@ -15,6 +15,15 @@
   let lastDrawing = null;
   let lastCalc = null;
   const upperTableFieldIds = ['structureColor', 'fabric', 'fabricProfiles', 'motor', 'remote', 'led', 'dimmer', 'extras'];
+
+  const BOOLEAN_FIELD_IDS = ['parapet', 'glassTrack', 'triangleJoinery', 'waterStandard'];
+  const BOOLEAN_CANONICAL = {
+    EVET: { tr: 'EVET', en: 'YES' },
+    HAYIR: { tr: 'HAYIR', en: 'NO' }
+  };
+  let currentLanguage = 'tr';
+  let deferredInstallPrompt = null;
+
   let wrappingFields = false;
   const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
   const EXCEL_COMBO_OPTIONS = {
@@ -53,9 +62,192 @@
     triangleJoinery: 'HAYIR', waterStandard: 'EVET'
   };
 
+  const UI_TEXT = {
+    tr: {
+      langLabel: 'Dil', helpBtn: 'Yardım', installBtn: 'Ana Ekrana Ekle',
+      appTitleMain: 'Pülümür Automation Studio', appTitleSub: '| Parametrik Çizim ve Proje Otomasyonu | Hazırlayan / Geliştiren : Ayetullah KILINÇ',
+      labelProduct: 'Ürün', labelModule: 'Modül', labelEngine: 'Çizim Motoru',
+      legendProject: 'Proje Bilgileri', legendSystem: 'Sistem Ölçüleri <b>*(mm)</b>', legendOptions: 'Opsiyonlar', legendExtra: 'Ek Opsiyonlar',
+      labelSystemCount: 'Sistem Adedi', labelWidth: 'Genişlik', labelOpening: 'Açılım',
+      labelRearHeight: 'Arka H', labelFrontHeight: 'Ön H <em>Oluk Altı</em>',
+      labelRayCount: 'Ray Sayısı <b>Bir Sistem</b>', labelPostCount: 'Dikme Sayısı <b>Tüm Sistem</b>',
+      project_customer: 'Müşteri', project_project: 'Proje', project_version: 'Versiyon', project_drawnBy: 'Çizen', project_date: 'Tarih',
+      options_parapet: 'Parapet', options_parapetHeight: 'Parapet H <b>*(mm)</b>', options_glassTrack: 'Cam Kaydı',
+      options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
+      options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
+      extra_triangleJoinery: 'Üçgen Doğrama', extra_waterStandard: 'Su Çıkışı Standart mı?', quickTestsHead: 'Hızlı Testler',
+      previewTitle: 'Çizim Ön İzleme', previewBtn: 'Önizlemeyi Yenile', expandPreviewBtn: 'Önizlemeyi Büyüt', fitPreviewBtn: 'Çizimi Sığdır', shrinkPreviewBtn: 'Önizlemeyi Küçült',
+      pdfBtn: 'PDF İndir', generateBtn: 'DXF İndir', resetBtn: 'Değerleri Resetle', calcBtn: 'Pülümür Hesaplayıcı',
+      calcTitle: 'Pülümür Hesaplayıcı', calcSub: '4 satırdan herhangi 3 tanesini doldur. Boş olan değer hesaplanır.',
+      calcGuide: '<strong>TR</strong><ul><li>4 alandan 3 tanesini doldur.</li><li>Hesaplanacak alanı boş bırak.</li><li>Hesapla’ya bas.</li><li>Sonucu ana forma aktar.</li></ul>',
+      calcWaiting: 'Sonuç bekleniyor.', calcReady: 'Sonuç', calcPoz: 'poz', calcOpenNote: 'Ana formdaki açılım / arka / ön değerleri aktarıldı. Açıyı hesaplamak için Hesapla’ya bas.',
+      calcAngleLabel: 'Sistem Açısı (°)', calcOpeningLabel: 'Açılım *(mm)', calcRearLabel: 'Arka H *(mm)', calcFrontLabel: 'Ön H *(mm)',
+      calcComputeBtn: 'Hesapla', calcTransferBtn: 'Sonucu Hücrelere Aktar', calcClearBtn: 'Sıfırla', helpTitle: 'Yardım / Kullanım Kılavuzu', helpCloseBtn: 'Kapat', emptyPreview: 'Önizleme için zorunlu ölçüleri doldur.',
+      placeholders: {
+        systemCount: 'Örn. 1', width: 'Örn. 4000 veya 3000;100;2500;NO', opening: 'Örn. 6000 veya 4500;5200', rearHeight: 'Örn. 3200 veya 3200;3400', frontHeight: 'Örn. 2600',
+        rayCount: 'Örn. 2 veya 2;3;2', postCount: 'Örn. 2 veya boş: otomatik', calcAngle: 'Örn. 4.16 veya boş', calcOpening: 'Örn. 4500;5200 veya boş', calcRear: 'Örn. 3200;3400 veya boş', calcFront: 'Örn. 2600 veya boş'
+      }
+    },
+    en: {
+      langLabel: 'Language', helpBtn: 'Help', installBtn: 'Add to Home Screen',
+      appTitleMain: 'Pülümür Automation Studio', appTitleSub: '| Parametric Drawing and Project Automation | Prepared / Developed by: Ayetullah KILINÇ',
+      labelProduct: 'Product', labelModule: 'Module', labelEngine: 'Drawing Engine',
+      legendProject: 'Project Info', legendSystem: 'System Dimensions <b>*(mm)</b>', legendOptions: 'Options', legendExtra: 'Extra Options',
+      labelSystemCount: 'System Count', labelWidth: 'Width', labelOpening: 'Projection',
+      labelRearHeight: 'Rear H', labelFrontHeight: 'Front H <em>Gutter Bottom</em>',
+      labelRayCount: 'Rail Count <b>Per System</b>', labelPostCount: 'Post Count <b>All Systems</b>',
+      project_customer: 'Customer', project_project: 'Project', project_version: 'Version', project_drawnBy: 'Drawn By', project_date: 'Date',
+      options_parapet: 'Parapet', options_parapetHeight: 'Parapet H <b>*(mm)</b>', options_glassTrack: 'Glass Gable',
+      options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
+      options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
+      extra_triangleJoinery: 'Triangle Joinery', extra_waterStandard: 'Standard Water Outlet?', quickTestsHead: 'Quick Tests',
+      previewTitle: 'Drawing Preview', previewBtn: 'Refresh Preview', expandPreviewBtn: 'Expand Preview', fitPreviewBtn: 'Fit Drawing', shrinkPreviewBtn: 'Collapse Preview',
+      pdfBtn: 'Download PDF', generateBtn: 'Download DXF', resetBtn: 'Reset Values', calcBtn: 'Pulumur Calculator',
+      calcTitle: 'Pulumur Calculator', calcSub: 'Fill any 3 of the 4 rows. The empty value will be calculated.',
+      calcGuide: '<strong>EN</strong><ul><li>Fill 3 of the 4 fields.</li><li>Leave one field empty.</li><li>Click Calculate.</li><li>Transfer the result to the main form.</li></ul>',
+      calcWaiting: 'Waiting for result.', calcReady: 'Result', calcPoz: 'position', calcOpenNote: 'Projection / rear H / front H values were copied from the main form. Click Calculate to calculate the angle.',
+      calcAngleLabel: 'System Angle (°)', calcOpeningLabel: 'Projection *(mm)', calcRearLabel: 'Rear H *(mm)', calcFrontLabel: 'Front H *(mm)',
+      calcComputeBtn: 'Calculate', calcTransferBtn: 'Transfer Result', calcClearBtn: 'Clear', helpTitle: 'Help / User Guide', helpCloseBtn: 'Close', emptyPreview: 'Fill the required dimensions for preview.',
+      placeholders: {
+        systemCount: 'Ex. 1', width: 'Ex. 4000 or 3000;100;2500;NO', opening: 'Ex. 6000 or 4500;5200', rearHeight: 'Ex. 3200 or 3200;3400', frontHeight: 'Ex. 2600',
+        rayCount: 'Ex. 2 or 2;3;2', postCount: 'Ex. 2 or blank: auto', calcAngle: 'Ex. 4.16 or blank', calcOpening: 'Ex. 4500;5200 or blank', calcRear: 'Ex. 3200;3400 or blank', calcFront: 'Ex. 2600 or blank'
+      }
+    }
+  };
+
+  const QUICK_TEST_PRESETS = [
+    { name: 'Test 1', title: '1 adet · 2 ray · aynı ölçüler · otomatik dikme', values: { customer: 'TEST', project: 'TEST 1', systemCount: '1', width: '4000', opening: '4500', rearHeight: '3200', frontHeight: '2600' } },
+    { name: 'Test 2', title: '1 adet · Cam kaydı EVET · 8060 => 3 ray', values: { customer: 'TEST', project: 'TEST 2', systemCount: '1', width: '8060', opening: '4500', rearHeight: '3200', frontHeight: '2600', glassTrack: 'EVET' } },
+    { name: 'Test 3', title: '2 adet · aynı genişlik · 2;2 ray', values: { customer: 'TEST', project: 'TEST 3', systemCount: '2', width: '3000;3000', opening: '4500;4500', rearHeight: '3200;3200', frontHeight: '2600' } },
+    { name: 'Test 4', title: '2 adet · farklı genişlik/açılım · Cam kaydı EVET', values: { customer: 'TEST', project: 'TEST 4', systemCount: '2', width: '4000;4500', opening: '4500;5200', rearHeight: '3200;3400', frontHeight: '2600', glassTrack: 'EVET' } },
+    { name: 'Test 5', title: '2 adet · NO boşluk modu', values: { customer: 'TEST', project: 'TEST 5', systemCount: '2', width: '3000;100;3000;NO', opening: '4500;4500', rearHeight: '3200;3200', frontHeight: '2600' } },
+    { name: 'Test 6', title: '3 adet · aynı açılım · otomatik', values: { customer: 'TEST', project: 'TEST 6', systemCount: '3', width: '3200;3200;3200', opening: '4500;4500;4500', rearHeight: '3200;3200;3200', frontHeight: '2600' } },
+    { name: 'Test 7', title: '3 adet · farklı genişlik/açılım/arka yükseklik', values: { customer: 'TEST', project: 'TEST 7', systemCount: '3', width: '4000;4500;5000', opening: '4500;5200;6000', rearHeight: '3200;3400;3600', frontHeight: '2600' } },
+    { name: 'Test 8', title: '3 adet · dikme sayısı otomatikten 2 eksik', values: { customer: 'TEST', project: 'TEST 8', systemCount: '3', width: '4000;4500;5000', opening: '4500;5200;6000', rearHeight: '3200;3400;3600', frontHeight: '2600', postCount: '4' } },
+    { name: 'Test 9', title: '5 adet · aynı genişlik/açılım', values: { customer: 'TEST', project: 'TEST 9', systemCount: '5', width: '4000;4000;4000;4000;4000', opening: '4500;4500;4500;4500;4500', rearHeight: '3200;3200;3200;3200;3200', frontHeight: '2600' } },
+    { name: 'Test 10', title: '5 adet · farklı genişlik/açılım · 3 raylar', values: { customer: 'TEST', project: 'TEST 10', systemCount: '5', width: '6000;6200;6400;6600;6800', opening: '4500;4600;4700;4800;4900', rearHeight: '3200;3300;3400;3500;3600', frontHeight: '2600' } },
+    { name: 'Test 11', title: '7 adet · aynı genişlik · 2 raylar', values: { customer: 'TEST', project: 'TEST 11', systemCount: '7', width: '3000;3000;3000;3000;3000;3000;3000', opening: '4500;4500;4500;4500;4500;4500;4500', rearHeight: '3200;3200;3200;3200;3200;3200;3200', frontHeight: '2600' } },
+    { name: 'Test 12', title: '7 adet · farklı genişlik · karışık 2/3 ray', values: { customer: 'TEST', project: 'TEST 12', systemCount: '7', width: '4000;4200;4400;4600;4800;5000;5200', opening: '4500;4550;4600;4650;4700;4750;4800', rearHeight: '3200;3250;3300;3350;3400;3450;3500', frontHeight: '2600' } },
+    { name: 'Test 13', title: 'Parapet EVET · 600 mm', values: { customer: 'TEST', project: 'TEST 13', systemCount: '2', width: '4000;4500', opening: '4500;5200', rearHeight: '3200;3400', frontHeight: '2600', parapet: 'EVET', parapetHeight: '600' } },
+    { name: 'Test 14', title: 'Üçgen doğrama EVET', values: { customer: 'TEST', project: 'TEST 14', systemCount: '2', width: '4000;4500', opening: '4500;5200', rearHeight: '3200;3400', frontHeight: '2600', triangleJoinery: 'EVET' } },
+    { name: 'Test 15', title: 'Su çıkışı standart HAYIR', values: { customer: 'TEST', project: 'TEST 15', systemCount: '2', width: '4000;4500', opening: '4500;5200', rearHeight: '3200;3400', frontHeight: '2600', waterStandard: 'HAYIR' } },
+    { name: 'Test 16', title: 'Kombine test · parapet+cam+üçgen', values: { customer: 'TEST', project: 'TEST 16', systemCount: '3', width: '4000;4500;5000', opening: '4500;5200;6000', rearHeight: '3200;3400;3600', frontHeight: '2600', parapet: 'EVET', parapetHeight: '600', glassTrack: 'EVET', triangleJoinery: 'EVET', waterStandard: 'HAYIR' } }
+  ];
+
   function today() {
     return new Date().toISOString().slice(0, 10);
   }
+  function normalizeYesNo(value) {
+    const upper = String(value ?? '').trim().toLocaleUpperCase('tr-TR');
+    if (['EVET', 'YES'].includes(upper)) return 'EVET';
+    if (['HAYIR', 'HAYR', 'NO'].includes(upper)) return 'HAYIR';
+    return String(value ?? '').trim();
+  }
+
+  function setBooleanSelectTexts(lang) {
+    BOOLEAN_FIELD_IDS.forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      Array.from(el.options).forEach(opt => {
+        const canonical = normalizeYesNo(opt.value || opt.textContent);
+        if (BOOLEAN_CANONICAL[canonical]) opt.textContent = BOOLEAN_CANONICAL[canonical][lang];
+      });
+    });
+  }
+
+  function setText(id, value, html = false) {
+    const el = $(id);
+    if (!el) return;
+    if (html) el.innerHTML = value; else el.textContent = value;
+  }
+
+  function labelSpan(id) {
+    const el = $(id);
+    const label = el && el.closest('label');
+    return label ? label.querySelector('span') : null;
+  }
+
+  function translateUI(lang) {
+    currentLanguage = (lang === 'en') ? 'en' : 'tr';
+    const txt = UI_TEXT[currentLanguage];
+    document.documentElement.lang = currentLanguage;
+    setText('langLabel', txt.langLabel);
+    setText('helpBtn', txt.helpBtn);
+    setText('installBtn', txt.installBtn);
+    setText('appTitleMain', txt.appTitleMain);
+    setText('appTitleSub', txt.appTitleSub);
+    setText('labelProduct', txt.labelProduct);
+    setText('labelModule', txt.labelModule);
+    setText('labelEngine', txt.labelEngine);
+    setText('legendProject', txt.legendProject);
+    setText('legendSystem', txt.legendSystem, true);
+    setText('legendOptions', txt.legendOptions);
+    setText('legendExtra', txt.legendExtra);
+    setText('labelSystemCount', txt.labelSystemCount);
+    setText('labelWidth', txt.labelWidth, true);
+    setText('labelOpening', txt.labelOpening, true);
+    setText('labelRearHeight', txt.labelRearHeight, true);
+    setText('labelFrontHeight', txt.labelFrontHeight, true);
+    setText('labelRayCount', txt.labelRayCount, true);
+    setText('labelPostCount', txt.labelPostCount, true);
+    const projectMap = {customer:'project_customer', project:'project_project', version:'project_version', drawnBy:'project_drawnBy', date:'project_date'};
+    Object.entries(projectMap).forEach(([id,key]) => { const s=labelSpan(id); if (s) s.textContent = txt[key]; });
+    const optionMap = {parapet:'options_parapet', parapetHeight:'options_parapetHeight', glassTrack:'options_glassTrack', structureColor:'options_structureColor', fabric:'options_fabric', fabricProfiles:'options_fabricProfiles', motor:'options_motor', remote:'options_remote', led:'options_led', dimmer:'options_dimmer', extras:'options_extras', triangleJoinery:'extra_triangleJoinery'};
+    Object.entries(optionMap).forEach(([id,key]) => { const s=labelSpan(id); if (s) { if (key.endsWith('Height')) s.innerHTML = txt[key]; else s.textContent = txt[key]; } });
+    setText('labelWaterStandard', txt.extra_waterStandard);
+    setText('quickTestsHead', txt.quickTestsHead);
+    setText('previewTitle', txt.previewTitle);
+    setText('previewBtn', txt.previewBtn);
+    const expandText = (document.fullscreenElement === previewPanel || previewPanel.classList.contains('is-expanded')) ? txt.shrinkPreviewBtn : txt.expandPreviewBtn;
+    setText('expandPreviewBtn', expandText);
+    setText('fitPreviewBtn', txt.fitPreviewBtn);
+    setText('pdfBtn', txt.pdfBtn);
+    setText('generateBtn', txt.generateBtn);
+    setText('resetBtn', txt.resetBtn);
+    setText('calcBtn', txt.calcBtn);
+    setText('calcTitle', txt.calcTitle);
+    setText('calcSub', txt.calcSub);
+    setText('calcGuide', txt.calcGuide, true);
+    const calcMap = {calcAngle:'calcAngleLabel', calcOpening:'calcOpeningLabel', calcRear:'calcRearLabel', calcFront:'calcFrontLabel'};
+    Object.entries(calcMap).forEach(([id,key]) => { const s=labelSpan(id); if (s) s.textContent = txt[key]; });
+    setText('calcComputeBtn', txt.calcComputeBtn);
+    setText('calcTransferBtn', txt.calcTransferBtn);
+    setText('calcClearBtn', txt.calcClearBtn);
+    setText('helpTitle', txt.helpTitle);
+    const helpClose = document.querySelector('#helpDialog .modal-actions button');
+    if (helpClose) helpClose.textContent = txt.helpCloseBtn;
+    Object.entries(txt.placeholders).forEach(([id,val]) => { if ($(id)) $(id).placeholder = val; });
+    setBooleanSelectTexts(currentLanguage);
+    try { localStorage.setItem('pulumur_lang', currentLanguage); } catch (e) {}
+  }
+
+  function setupPwaInstall() {
+    const btn = $('installBtn');
+    if (!btn) return;
+    btn.hidden = false;
+    window.addEventListener('beforeinstallprompt', evt => {
+      evt.preventDefault();
+      deferredInstallPrompt = evt;
+      btn.hidden = false;
+    });
+    btn.addEventListener('click', async () => {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch (e) {}
+        deferredInstallPrompt = null;
+        return;
+      }
+      const isEn = currentLanguage === 'en';
+      window.alert(isEn
+        ? 'To use it like an app: open the browser menu and choose “Install app” or “Add to Home screen”.'
+        : 'Uygulama gibi kullanmak için tarayıcı menüsünden “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğini kullan.');
+    });
+    window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.55').catch(() => {}), { once: true });
+    }
+  }
+
 
   function fillInitial() {
     const d = { ...EXCEL_DEFAULT_INPUT, date: today() };
@@ -98,9 +290,11 @@
       const el = $(id);
       if (!el) return acc;
       const value = el.value;
-      acc[id] = upperTableFieldIds.includes(id)
+      let normalized = upperTableFieldIds.includes(id)
         ? String(value || '').replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
         : value;
+      if (BOOLEAN_FIELD_IDS.includes(id)) normalized = normalizeYesNo(normalized);
+      acc[id] = normalized;
       return acc;
     }, { sideTrack: 'HAYIR' });
   }
@@ -112,13 +306,16 @@
   }
 
   function validateInput(d) {
+    const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
+    const fieldNames = currentLanguage === 'en'
+      ? { width: 'Width', opening: 'Projection', rearHeight: 'Rear H', frontHeight: 'Front H' }
+      : { width: 'Genişlik', opening: 'Açılım', rearHeight: 'Arka H', frontHeight: 'Ön H' };
     const missing = [];
-    if (firstNumber(d.width) <= 0) missing.push('Genişlik');
-    if (firstNumber(d.opening) <= 0) missing.push('Açılım');
-    if (firstNumber(d.rearHeight) <= 0) missing.push('Arka yükseklik');
-    if (firstNumber(d.frontHeight) <= 0) missing.push('Ön yükseklik');
-    // Ray ve dikme sayısı Excel makrosundaki gibi otomatik hesaplanebilir.
-    if (missing.length) throw new Error(`${missing.join(', ')} alanlarını doldur.`);
+    if (firstNumber(d.width) <= 0) missing.push(fieldNames.width);
+    if (firstNumber(d.opening) <= 0) missing.push(fieldNames.opening);
+    if (firstNumber(d.rearHeight) <= 0) missing.push(fieldNames.rearHeight);
+    if (firstNumber(d.frontHeight) <= 0) missing.push(fieldNames.frontHeight);
+    if (missing.length) throw new Error(currentLanguage === 'en' ? `Fill: ${missing.join(', ')}.` : `${missing.join(', ')} alanlarını doldur.`);
   }
 
   function autosizeTextarea(el) {
@@ -157,7 +354,8 @@
       statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan.`;
       return drawing;
     } catch (err) {
-      preview.innerHTML = '<div class="empty-state">Önizleme için zorunlu ölçüleri doldur.</div>';
+      const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
+      preview.innerHTML = `<div class="empty-state">${escapeHtml(txt.emptyPreview)}</div>`;
       statusText.textContent = err.message;
       return null;
     }
@@ -304,7 +502,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_40-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_55-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -489,7 +687,8 @@ ${err.message}`);
     const btn = $('expandPreviewBtn');
     if (!btn || !previewPanel) return;
     const expanded = document.fullscreenElement === previewPanel || previewPanel.classList.contains('is-expanded');
-    btn.textContent = expanded ? 'Önizlemeyi Küçült' : 'Önizlemeyi Büyüt';
+    const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
+    btn.textContent = expanded ? txt.shrinkPreviewBtn : txt.expandPreviewBtn;
   }
 
   async function togglePreviewFullscreen() {
@@ -508,6 +707,7 @@ ${err.message}`);
 
   function resetForm() {
     fillInitial();
+    document.querySelectorAll('.quick-test-btn.active').forEach(btn => btn.classList.remove('active'));
     updatePreview();
   }
 
@@ -536,7 +736,10 @@ ${err.message}`);
       const ids = ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'];
       const targetId = ids[result.missingIndex];
       $(targetId).value = result.resultText;
-      $('calcResult').textContent = `Sonuç (${result.pozSay} poz): ${result.resultText}`;
+      {
+        const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
+        $('calcResult').textContent = `${txt.calcReady} (${result.pozSay} ${txt.calcPoz}): ${result.resultText}`;
+      }
       return result;
     } catch (err) {
       $('calcResult').textContent = err.message;
@@ -560,7 +763,7 @@ ${err.message}`);
 
   function clearCalc() {
     ['calcAngle', 'calcOpening', 'calcRear', 'calcFront'].forEach(id => { $(id).value = ''; });
-    $('calcResult').textContent = 'Sonuç bekleniyor.';
+    $('calcResult').textContent = (UI_TEXT[currentLanguage] || UI_TEXT.tr).calcWaiting;
     lastCalc = null;
   }
 
@@ -569,18 +772,85 @@ ${err.message}`);
     $('calcRear').value = $('rearHeight').value || '';
     $('calcFront').value = $('frontHeight').value || '';
     $('calcAngle').value = '';
-    $('calcResult').textContent = 'Ana formdaki açılım / arka / ön değerleri aktarıldı. Açıyı hesaplamak için Hesapla’ya bas.';
+    $('calcResult').textContent = (UI_TEXT[currentLanguage] || UI_TEXT.tr).calcOpenNote;
     $('calculatorDialog').showModal();
   }
+
+  const WEB_HELP_TEXT_TR = `WEB KULLANIM KILAVUZU
+Pülümür Automation Studio, Pergo Rise Module 1 için DXF ve A0 PDF üretir.
+
+1) Temel kullanım
+- Proje bilgilerini yaz.
+- Sistem ölçülerini mm olarak gir.
+- Önizleme otomatik oluşur.
+- PDF İndir veya DXF İndir butonlarını kullan.
+
+2) Çoklu poz
+- Değerleri noktalı virgül (;) ile ayır.
+- Örnek genişlik: 4000;4500;5000
+- Örnek açılım: 4500;5200;6000
+- Tek değer yazarsan tüm pozlar için ortak kabul edilir.
+
+3) NO modu
+- Genişlikte sonuna ;NO yazabilirsin.
+- Örnek: 3000;100;3000;NO
+- Bu durumda aradaki 100 ara boşluktur.
+
+4) Otomatik ray ve dikme
+- Ray sayısı genişliğe göre otomatik gelir.
+- Cam Kaydı EVET ise ray hesabı gerçek çizim genişliğine göre yapılır.
+- Ray veya dikme sayısını manuel yazarsan o değer kullanılır.
+
+5) Önizleme
+- Mouse tekerleği ile yakınlaş / uzaklaş.
+- Sol tuşa basılı tutup sürükle.
+- Çizimi Sığdır ile tekrar ekrana oturt.
+
+6) Dil
+- Türkçe veya İngilizce seçebilirsin.`;
+
+  const WEB_HELP_TEXT_EN = `WEB USER GUIDE
+Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
+
+1) Basic use
+- Write the project information.
+- Enter the system dimensions in mm.
+- The preview is created automatically.
+- Use Download PDF or Download DXF.
+
+2) Multiple positions
+- Separate values with semicolon (;).
+- Width example: 4000;4500;5000
+- Projection example: 4500;5200;6000
+- If you write one value, it is used for all positions.
+
+3) NO mode
+- In Width, you can write ;NO at the end.
+- Example: 3000;100;3000;NO
+- Here, 100 is the gap between systems.
+
+4) Automatic rail and post count
+- Rail count is calculated from the width.
+- If Glass Gable is YES, the rail count uses the real drawing width.
+- If you write rail or post count manually, your value is used.
+
+5) Preview
+- Use the mouse wheel to zoom in and out.
+- Hold left mouse button and drag to move.
+- Use Fit Drawing to fit the drawing again.
+
+6) Language
+- You can use Turkish or English.`;
 
   function showHelp() {
     const dialog = $('helpDialog');
     const box = $('helpContent');
+    const text = currentLanguage === 'en' ? WEB_HELP_TEXT_EN : WEB_HELP_TEXT_TR;
     if (dialog && box) {
-      box.textContent = window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.';
+      box.textContent = text;
       dialog.showModal();
     } else {
-      alert(window.PulumurExcelBridge ? window.PulumurExcelBridge.HELP_TEXT : 'Yardım içeriği yüklenemedi.');
+      alert(text);
     }
   }
 
@@ -688,6 +958,79 @@ ${err.message}`);
     if (box && box.classList.contains('open')) buildComboMenu(remoteEl, box);
   }
 
+  function filterSemiNumeric(value, allowNo) {
+    const src = String(value || '').toLocaleUpperCase('tr-TR');
+    let out = '';
+    let hasN = false;
+    let hasO = false;
+    for (const ch of src) {
+      if (/[0-9;]/.test(ch)) {
+        out += ch;
+      } else if (allowNo && ch === 'N' && !hasN && !hasO) {
+        out += 'N';
+        hasN = true;
+      } else if (allowNo && ch === 'O' && hasN && !hasO && out.endsWith('N')) {
+        out += 'O';
+        hasO = true;
+      }
+    }
+    return out;
+  }
+
+  function applyPresetValues(values) {
+    fillInitial();
+    const deferredManual = {};
+    Object.entries(values || {}).forEach(([id, value]) => {
+      const el = $(id);
+      if (!el) return;
+      if (id === 'rayCount' || id === 'postCount') {
+        deferredManual[id] = value;
+        return;
+      }
+      el.value = value;
+    });
+    updateRemoteOptions(false);
+    applyAutoRayPost(true);
+    ['rayCount', 'postCount'].forEach(id => {
+      if (!$(id)) return;
+      $(id).dataset.userEdited = 'false';
+    });
+    if (deferredManual.rayCount !== undefined && $('rayCount')) {
+      $('rayCount').value = deferredManual.rayCount;
+      $('rayCount').dataset.userEdited = String(deferredManual.rayCount || '').trim() ? 'true' : 'false';
+      if (deferredManual.postCount === undefined && $('postCount')) {
+        const raw = collectForm();
+        const br = window.PulumurExcelBridge;
+        if (br && br.postCountFromRayText) $('postCount').value = br.postCountFromRayText($('rayCount').value, raw.systemCount, raw.width, raw.frontHeight);
+      }
+    }
+    if (deferredManual.postCount !== undefined && $('postCount')) {
+      $('postCount').value = deferredManual.postCount;
+      $('postCount').dataset.userEdited = String(deferredManual.postCount || '').trim() ? 'true' : 'false';
+    }
+    updateRemoteOptions(true);
+    updatePreview();
+  }
+
+  function renderQuickTests() {
+    const host = $('quickTestsGrid');
+    if (!host) return;
+    host.innerHTML = QUICK_TEST_PRESETS.map((preset, index) => (
+      `<button type="button" class="quick-test-btn" data-test-index="${index}" title="${escapeHtml(preset.title)}">${escapeHtml(preset.name)}</button>`
+    )).join('');
+    host.querySelectorAll('.quick-test-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.testIndex);
+        const preset = QUICK_TEST_PRESETS[idx];
+        if (!preset) return;
+        host.querySelectorAll('.quick-test-btn').forEach(x => x.classList.remove('active'));
+        btn.classList.add('active');
+        applyPresetValues(preset.values);
+        statusText.textContent = `${preset.name} yüklendi: ${preset.title}`;
+      });
+    });
+  }
+
   function bindStrictInputs() {
     const numericOnly = id => {
       const el = $(id);
@@ -697,7 +1040,17 @@ ${err.message}`);
         if (el.value !== clean) el.value = clean;
       });
     };
+    const semiNumeric = (id, allowNo = false) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const clean = filterSemiNumeric(el.value, allowNo);
+        if (el.value !== clean) el.value = clean;
+      });
+    };
     numericOnly('parapetHeight');
+    semiNumeric('width', true);
+    ['opening', 'rearHeight', 'frontHeight', 'rayCount', 'postCount'].forEach(id => semiNumeric(id, false));
   }
 
   function bindEvents() {
@@ -709,6 +1062,7 @@ ${err.message}`);
     $('fitPreviewBtn').addEventListener('click', fitPreview);
     $('calcBtn').addEventListener('click', openCalculator);
     $('helpBtn').addEventListener('click', showHelp);
+    $('languageSelect').addEventListener('change', evt => { translateUI(evt.target.value); updatePreview(); });
     $('motor').addEventListener('input', () => { updateRemoteOptions(true); });
     $('motor').addEventListener('change', () => { updateRemoteOptions(true); updatePreview(); });
     $('calcComputeBtn').addEventListener('click', () => {
@@ -746,8 +1100,13 @@ ${err.message}`);
   bindPreviewInteractions();
   enhanceExcelCombos();
   bindStrictInputs();
+  renderQuickTests();
   fillInitial();
   bindEvents();
+  setupPwaInstall();
+  const savedLang = (() => { try { return localStorage.getItem('pulumur_lang') || 'tr'; } catch (e) { return 'tr'; } })();
+  if ($('languageSelect')) $('languageSelect').value = savedLang === 'en' ? 'en' : 'tr';
+  translateUI(savedLang);
   updatePreview();
   syncExpandButton();
 })();

@@ -670,3 +670,830 @@ textarea {
   .brand-mark { height: 34px; min-width: 72px; font-size: 19px; }
   .app-header p { font-size: 12px; }
 }
+
+
+/* V8.2.41: Alt işlem butonları önizleme başlığına taşındı */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.preview-title {
+  min-width: 148px;
+}
+.preview-head {
+  align-items: center;
+}
+.preview-tools {
+  flex: 1;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.preview-tool-btn {
+  min-width: 132px;
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.preview-tools .danger-btn {
+  background: var(--red);
+}
+@media (max-width: 1360px) {
+  .preview-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .preview-tools {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 760px) {
+  .preview-title { min-width: 0; }
+  .preview-tool-btn { flex: 1 1 150px; }
+}
+
+
+/* V8.2.43: Önizleme başlığı buton düzeni + proje içi reset/hesaplayıcı */
+:root { --toolbar-btn-w: 166px; --toolbar-btn-h: 42px; }
+.app-header p { display: none !important; }
+.top-actions { justify-content: flex-end; }
+.project-inline-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  padding: 10px 10px 0;
+  flex-wrap: wrap;
+}
+.form-action-btn,
+.preview-tool-btn {
+  width: var(--toolbar-btn-w);
+  min-width: var(--toolbar-btn-w);
+  max-width: var(--toolbar-btn-w);
+  min-height: var(--toolbar-btn-h);
+  height: var(--toolbar-btn-h);
+  padding: 8px 10px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  text-align: center;
+}
+.preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.preview-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.preview-title h2 {
+  margin: 0;
+  line-height: 1.05;
+}
+.preview-control-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.preview-download-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.preview-tools { display: contents; }
+.notes { display: none !important; }
+.preview-panel:fullscreen .preview-canvas,
+.preview-panel.is-expanded .preview-canvas {
+  min-height: calc(100vh - 122px);
+}
+@media (max-width: 1380px) {
+  :root { --toolbar-btn-w: 156px; }
+  .preview-head { grid-template-columns: 1fr; }
+  .preview-download-actions { flex-direction: row; align-items: flex-start; }
+}
+@media (max-width: 760px) {
+  :root { --toolbar-btn-w: 100%; }
+  .preview-head { padding: 12px; }
+  .preview-control-row,
+  .preview-download-actions,
+  .project-inline-actions { width: 100%; }
+  .form-action-btn,
+  .preview-tool-btn { flex: 1 1 100%; max-width: none; }
+}
+
+
+/* V8.2.43: Sayfayı sola yasla, önizlemeyi genişlet, butonları tek satıra sığdır */
+:root {
+  --toolbar-btn-w: 140px;
+  --toolbar-btn-h: 38px;
+}
+.layout {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 8px 6px 8px 4px !important;
+  gap: 8px !important;
+  grid-template-columns: minmax(760px, 0.92fr) minmax(760px, 1.08fr) !important;
+}
+.input-panel {
+  padding: 8px !important;
+}
+.preview-panel {
+  min-height: calc(100vh - 78px) !important;
+}
+.preview-head {
+  padding: 10px 12px !important;
+  grid-template-columns: minmax(440px, 1fr) auto !important;
+  gap: 10px !important;
+}
+.preview-title {
+  gap: 8px !important;
+}
+.preview-title h2 {
+  font-size: 17px !important;
+}
+.preview-control-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, var(--toolbar-btn-w));
+  gap: 7px !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+}
+.preview-download-actions {
+  gap: 7px !important;
+}
+.form-action-btn,
+.preview-tool-btn {
+  width: var(--toolbar-btn-w) !important;
+  min-width: var(--toolbar-btn-w) !important;
+  max-width: var(--toolbar-btn-w) !important;
+  height: var(--toolbar-btn-h) !important;
+  min-height: var(--toolbar-btn-h) !important;
+  padding: 7px 8px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+.project-inline-actions {
+  padding-top: 8px !important;
+}
+.preview-canvas {
+  min-height: calc(100vh - 206px) !important;
+}
+
+@media (min-width: 1500px) {
+  .layout {
+    grid-template-columns: minmax(840px, 0.95fr) minmax(840px, 1.05fr) !important;
+  }
+}
+@media (max-width: 1560px) {
+  :root { --toolbar-btn-w: 132px; }
+  .layout {
+    grid-template-columns: minmax(690px, 0.94fr) minmax(660px, 1.06fr) !important;
+  }
+  .preview-head {
+    grid-template-columns: minmax(410px, 1fr) auto !important;
+  }
+  .preview-tool-btn,
+  .form-action-btn {
+    font-size: 11.5px !important;
+  }
+}
+@media (max-width: 1380px) {
+  :root { --toolbar-btn-w: 126px; }
+  .layout {
+    grid-template-columns: minmax(640px, 0.96fr) minmax(610px, 1.04fr) !important;
+  }
+  .preview-head {
+    grid-template-columns: minmax(390px, 1fr) auto !important;
+  }
+  .preview-download-actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+  }
+}
+@media (max-width: 1240px) {
+  .layout {
+    grid-template-columns: 1fr !important;
+    padding: 8px !important;
+  }
+  .preview-head {
+    grid-template-columns: 1fr !important;
+  }
+  .preview-download-actions {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+  }
+}
+@media (max-width: 760px) {
+  :root { --toolbar-btn-w: 100%; }
+  .preview-control-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* V8.2.44: veri girişini sola yaklaştır, önizlemeyi büyüt, 3 kontrol butonunu tek satıra sığdır */
+:root {
+  --toolbar-btn-w: 118px;
+  --toolbar-btn-h: 36px;
+}
+.layout {
+  grid-template-columns: minmax(700px, 0.84fr) minmax(860px, 1.16fr) !important;
+  padding: 6px 6px 6px 2px !important;
+  gap: 6px !important;
+}
+.input-panel {
+  padding: 6px !important;
+}
+.preview-panel {
+  min-height: calc(100vh - 74px) !important;
+}
+.preview-head {
+  padding: 8px 10px !important;
+  grid-template-columns: minmax(372px, 1fr) auto !important;
+  gap: 8px !important;
+}
+.preview-title {
+  gap: 6px !important;
+}
+.preview-control-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  width: min(390px, 100%) !important;
+  gap: 6px !important;
+}
+.preview-download-actions {
+  gap: 6px !important;
+}
+.preview-tool-btn,
+.form-action-btn {
+  width: var(--toolbar-btn-w) !important;
+  min-width: var(--toolbar-btn-w) !important;
+  max-width: var(--toolbar-btn-w) !important;
+  height: var(--toolbar-btn-h) !important;
+  min-height: var(--toolbar-btn-h) !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+}
+.preview-control-row .preview-tool-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+.project-inline-actions {
+  justify-content: flex-start !important;
+}
+.preview-canvas {
+  min-height: calc(100vh - 186px) !important;
+}
+@media (min-width: 1600px) {
+  .layout {
+    grid-template-columns: minmax(720px, 0.82fr) minmax(920px, 1.18fr) !important;
+  }
+}
+@media (max-width: 1560px) {
+  :root { --toolbar-btn-w: 114px; }
+  .layout {
+    grid-template-columns: minmax(650px, 0.86fr) minmax(760px, 1.14fr) !important;
+  }
+  .preview-head {
+    grid-template-columns: minmax(360px, 1fr) auto !important;
+  }
+  .preview-control-row {
+    width: min(366px, 100%) !important;
+  }
+}
+@media (max-width: 1380px) {
+  :root { --toolbar-btn-w: 110px; }
+  .layout {
+    grid-template-columns: minmax(610px, 0.9fr) minmax(670px, 1.1fr) !important;
+  }
+  .preview-head {
+    grid-template-columns: minmax(344px, 1fr) auto !important;
+  }
+  .preview-control-row {
+    width: min(348px, 100%) !important;
+  }
+}
+@media (max-width: 1240px) {
+  .layout { grid-template-columns: 1fr !important; padding: 8px !important; }
+  .preview-head { grid-template-columns: 1fr !important; }
+  .preview-control-row { width: 100% !important; }
+}
+
+
+/* V8.2.45: Ek opsiyonlar altında hızlı test butonları */
+.quick-tests {
+  padding: 10px 10px 4px;
+}
+.quick-tests-head {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--navy);
+}
+.quick-tests-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.quick-test-btn {
+  min-height: 30px;
+  height: 30px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  background: #e7eef5;
+  color: var(--navy);
+  box-shadow: none;
+  border: 1px solid #b9c8d8;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.quick-test-btn:hover {
+  background: #d9e8fb;
+}
+.quick-test-btn.active {
+  background: var(--yellow);
+  border-color: #c89200;
+}
+@media (max-width: 760px) {
+  .quick-tests-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+
+
+/* V8.2.46: Yeni logo, PWA, dil seçimi ve kısa H etiketleri */
+.brand-mark {
+  min-width: 270px !important;
+  width: 270px;
+  height: 58px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lang-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
+.lang-picker span {
+  font-size: 12px;
+  font-weight: 900;
+}
+.lang-picker select {
+  min-width: 62px;
+  min-height: 32px;
+  border-radius: 8px;
+  border-left: 0;
+  background: #e9ddae;
+  color: var(--ink);
+  padding: 4px 8px;
+}
+#installBtn[hidden] { display: none !important; }
+.selector-grid {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 0.92fr) minmax(0, 1.16fr) !important;
+}
+.selector-grid .selector-product,
+.selector-grid .selector-module,
+.selector-grid .selector-engine {
+  grid-template-columns: 33% 67% !important;
+}
+.selector-grid .selector-engine {
+  grid-template-columns: 40% 60% !important;
+}
+.selector-grid .selector-product span,
+.selector-grid .selector-module span,
+.selector-grid .selector-engine span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 1380px) {
+  .brand-mark { min-width: 220px !important; width: 220px; height: 50px !important; }
+  .selector-grid { grid-template-columns: minmax(0, 0.88fr) minmax(0, 0.88fr) minmax(0, 1.24fr) !important; }
+  .selector-grid .selector-engine { grid-template-columns: 42% 58% !important; }
+}
+@media (max-width: 900px) {
+  .brand-mark { min-width: 188px !important; width: 188px; height: 44px !important; }
+  .top-actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 760px) {
+  .brand-row { gap: 10px; }
+  .brand-mark { min-width: 170px !important; width: 170px; height: 40px !important; }
+  .selector-grid { grid-template-columns: 1fr !important; }
+  .selector-grid .selector-product,
+  .selector-grid .selector-module,
+  .selector-grid .selector-engine { grid-template-columns: 1fr !important; }
+}
+
+
+/* V8.2.50: üst seçici oranları, dil seçimi genişliği ve sistem ölçüsü mm başlığı */
+#legendSystem b {
+  color: red;
+  font-size: 11px;
+  font-style: italic;
+  margin-left: 4px;
+  text-transform: lowercase;
+}
+.lang-picker {
+  min-width: 164px !important;
+  justify-content: space-between !important;
+}
+.lang-picker span {
+  min-width: 70px !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+.lang-picker select {
+  min-width: 66px !important;
+}
+.selector-grid {
+  grid-template-columns: minmax(0, .82fr) minmax(0, .80fr) minmax(0, 1.38fr) !important;
+}
+.selector-grid .selector-product {
+  grid-template-columns: 36% 64% !important;
+}
+.selector-grid .selector-module {
+  grid-template-columns: 36% 64% !important;
+}
+.selector-grid .selector-engine {
+  grid-template-columns: 56% 44% !important;
+}
+.selector-grid .selector-engine select {
+  padding-left: 8px !important;
+  padding-right: 22px !important;
+}
+@media (max-width: 1380px) {
+  .lang-picker { min-width: 150px !important; }
+  .lang-picker span { min-width: 66px !important; }
+  .selector-grid { grid-template-columns: minmax(0, .78fr) minmax(0, .76fr) minmax(0, 1.46fr) !important; }
+  .selector-grid .selector-engine { grid-template-columns: 58% 42% !important; }
+}
+@media (max-width: 760px) {
+  .lang-picker { min-width: 0 !important; width: 100%; }
+  .lang-picker span { min-width: auto !important; }
+}
+
+
+/* V8.2.51: PLMR başlık teması, calculator rehberi ve buton renkleri */
+:root {
+  --plmr-black: #111111;
+  --plmr-petrol: #0d5d5f;
+  --plmr-petrol-2: #147a78;
+  --plmr-orange: #e35b2f;
+}
+.app-header {
+  background: linear-gradient(135deg, var(--plmr-black), #082033 62%, var(--plmr-petrol)) !important;
+  border-bottom-color: var(--plmr-petrol-2) !important;
+}
+.brand-row {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+#appTitle {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+#appTitleMain {
+  font-size: clamp(18px, 1.55vw, 26px);
+  line-height: 1;
+  font-weight: 900;
+}
+#appTitleSub {
+  font-size: clamp(10px, .72vw, 13px);
+  line-height: 1.1;
+  font-weight: 800;
+  opacity: .92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+legend,
+.modal-head {
+  background: linear-gradient(135deg, var(--plmr-black), #082033 70%, var(--plmr-petrol)) !important;
+}
+.preview-control-row .preview-tool-btn,
+#calcBtn,
+#calcComputeBtn {
+  background: var(--plmr-petrol) !important;
+}
+.preview-control-row .preview-tool-btn:hover,
+#calcBtn:hover,
+#calcComputeBtn:hover {
+  background: var(--plmr-petrol-2) !important;
+}
+#helpBtn {
+  background: var(--plmr-orange) !important;
+}
+.modal-head .icon-btn {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #ffffff !important;
+  background: rgba(255,255,255,.14) !important;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: none;
+}
+.modal-head .icon-btn:hover {
+  background: rgba(255,255,255,.24) !important;
+}
+.calc-guide {
+  margin: 0 22px 12px;
+  padding: 10px 12px;
+  background: #eef3f8;
+  border-left: 4px solid var(--plmr-petrol);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.28;
+  font-weight: 800;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 4px;
+}
+.calc-guide strong {
+  color: var(--plmr-petrol);
+}
+.calc-guide ul {
+  margin: 2px 0 0 16px;
+  padding: 0;
+}
+.calc-guide li {
+  margin: 1px 0;
+}
+.calc-result {
+  border: 1px solid rgba(13,93,95,.18);
+}
+@media (max-width: 1500px) {
+  .brand-mark { min-width: 210px !important; width: 210px !important; height: 46px !important; }
+  #appTitle { gap: 8px; }
+  #appTitleMain { font-size: clamp(17px, 1.35vw, 23px); }
+  #appTitleSub { font-size: clamp(9px, .62vw, 12px); }
+}
+@media (max-width: 1180px) {
+  #appTitle { flex-direction: column; gap: 2px; align-items: flex-start; }
+  #appTitleSub { max-width: 420px; }
+}
+@media (max-width: 760px) {
+  #appTitle { white-space: normal; }
+  .calc-guide { grid-template-columns: 1fr; }
+}
+
+
+/* V8.2.55: Antrasit gri + beyaz, Chrome gece modu benzeri sakin tema */
+:root {
+  --theme-anthracite: #202124;
+  --theme-anthracite-2: #2b2f33;
+  --theme-anthracite-3: #3c4043;
+  --theme-soft-line: #9aa0a6;
+  --theme-panel-head: #24272b;
+  --theme-quiet-bg: #f1f3f4;
+  --theme-white: #ffffff;
+  --theme-muted-orange: #9a5a42;
+  --theme-muted-teal: #2f6f6b;
+  --navy: #202124;
+  --navy-2: #3c4043;
+  --teal: #2f6f6b;
+  --blue: #3c4043;
+  --yellow: #9aa0a6;
+  --bg: #f1f3f4;
+  --shadow: 0 10px 24px rgba(32, 33, 36, .10);
+}
+body {
+  background: var(--theme-quiet-bg) !important;
+}
+.app-header {
+  background: linear-gradient(135deg, #202124, #2b2f33 62%, #3c4043) !important;
+  border-bottom-color: #b8bdc2 !important;
+  box-shadow: 0 2px 10px rgba(32,33,36,.18);
+}
+.panel {
+  border-color: #d6dade !important;
+  box-shadow: 0 8px 22px rgba(32,33,36,.08) !important;
+}
+legend,
+.modal-head {
+  background: linear-gradient(135deg, #202124, #2b2f33 72%, #3c4043) !important;
+  color: #ffffff !important;
+}
+.preview-head {
+  background: #ffffff !important;
+}
+.preview-canvas {
+  background: #eef1f4 !important;
+}
+.preview-canvas .empty-state {
+  color: #5f6770 !important;
+}
+.preview-control-row .preview-tool-btn,
+.preview-download-actions .preview-tool-btn,
+#calcBtn,
+#calcComputeBtn,
+#calcClearBtn,
+.soft-btn,
+.secondary-btn,
+.primary-btn {
+  background: #3c4043 !important;
+  color: #ffffff !important;
+}
+.preview-control-row .preview-tool-btn:hover,
+.preview-download-actions .preview-tool-btn:hover,
+#calcBtn:hover,
+#calcComputeBtn:hover,
+#calcClearBtn:hover,
+.soft-btn:hover,
+.secondary-btn:hover,
+.primary-btn:hover {
+  background: #4b5055 !important;
+}
+#generateBtn,
+#calcBtn {
+  background: #2f6f6b !important;
+}
+#generateBtn:hover,
+#calcBtn:hover {
+  background: #3f7d79 !important;
+}
+#pdfBtn {
+  background: #353a40 !important;
+}
+#pdfBtn:hover {
+  background: #464b51 !important;
+}
+#helpBtn {
+  background: #8f4f38 !important;
+}
+#helpBtn:hover {
+  background: #a56047 !important;
+}
+.danger-btn,
+#resetBtn {
+  background: #8b2f35 !important;
+}
+.danger-btn:hover,
+#resetBtn:hover {
+  background: #9b3a41 !important;
+}
+.accent-btn {
+  background: #2f6f6b !important;
+}
+.lang-picker {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.16);
+}
+.lang-picker select {
+  background: #ffffff !important;
+  color: #202124 !important;
+}
+.brand-mark {
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.16));
+}
+.calc-guide {
+  background: #f5f7f8 !important;
+  border-left-color: #3c4043 !important;
+  color: #30343a !important;
+}
+.calc-guide strong {
+  color: #202124 !important;
+}
+.calc-result {
+  border-color: rgba(60,64,67,.20) !important;
+}
+.quick-test-btn {
+  background: #f2f4f6 !important;
+  border-color: #c8cdd2 !important;
+  color: #202124 !important;
+}
+.quick-test-btn:hover {
+  background: #e5e8eb !important;
+}
+.quick-test-btn.active {
+  background: #d9dde1 !important;
+  border-color: #9aa0a6 !important;
+}
+#legendSystem b,
+label b,
+label em {
+  color: #7f3b2c !important;
+}
+
+
+/* V8.2.55: Calculator guide tek dil + alt sonuç bilgi kutusu gizlendi */
+.calc-guide {
+  grid-template-columns: 1fr !important;
+  max-width: none;
+  margin-bottom: 12px !important;
+}
+.calc-guide strong {
+  display: block;
+  margin-bottom: 2px;
+}
+#calcResult {
+  display: none !important;
+}
+
+
+/* V8.2.55: PDF / Download PDF butonu Subaru mavisi */
+#pdfBtn {
+  background: #004c99 !important;
+  color: #ffffff !important;
+}
+#pdfBtn:hover {
+  background: #0060b8 !important;
+}
+
+
+/* V8.2.55: *(mm) ve uyarı etiketleri koyu net kırmızı + Add to Home Screen */
+#legendSystem b,
+label b,
+label em,
+.calc-grid label span,
+#calcOpening + span,
+#calcRear + span,
+#calcFront + span {
+  color: #b00000 !important;
+  font-weight: 1000 !important;
+}
+#legendSystem b,
+label b {
+  font-size: 12.5px !important;
+  letter-spacing: .15px;
+}
+legend b {
+  color: #b00000 !important;
+  font-weight: 1000 !important;
+  font-size: 13.5px !important;
+}
+label em {
+  font-size: 12px !important;
+  font-weight: 1000 !important;
+}
+#helpBtn {
+  background: #b12a1c !important;
+  color: #ffffff !important;
+}
+#helpBtn:hover {
+  background: #c33827 !important;
+}
+.install-btn,
+#installBtn {
+  background: #2f6f6b !important;
+  color: #ffffff !important;
+  min-width: 154px !important;
+}
+.install-btn:hover,
+#installBtn:hover {
+  background: #3f7d79 !important;
+}
+#installBtn[hidden] {
+  display: inline-flex !important;
+}
+.lang-picker {
+  min-width: 146px !important;
+}
+.lang-picker span {
+  min-width: 76px !important;
+}
