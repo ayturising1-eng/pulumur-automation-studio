@@ -18,6 +18,7 @@
   let wrappingFields = false;
   const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
   const EXCEL_COMBO_OPTIONS = {
+    motor: ['-', 'RISING MOTOR', 'SOMFY RTS', 'SOMFY IO'],
     fabric: [
       '-',
       'C 1602 - 3D (8118-1622)',
@@ -303,7 +304,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_39-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_40-v${drawing.input.version}`);
   }
 
   function generateDxf() {
@@ -594,6 +595,11 @@ ${err.message}`);
 
   function optionValuesForInput(input) {
     const key = input && input.dataset ? input.dataset.excelCombo : '';
+    if (key === 'remote') {
+      const motorValue = $('motor') ? $('motor').value : '-';
+      const motorKey = String(motorValue || '-').trim().toLocaleUpperCase('tr-TR');
+      return REMOTE_OPTIONS_BY_MOTOR[motorKey] || ['-'];
+    }
     return key && EXCEL_COMBO_OPTIONS[key] ? EXCEL_COMBO_OPTIONS[key] : [];
   }
 
@@ -673,14 +679,13 @@ ${err.message}`);
   }
 
   function updateRemoteOptions(preserve = true) {
-    const motorEl = $('motor');
     const remoteEl = $('remote');
-    if (!motorEl || !remoteEl) return;
-    const key = String(motorEl.value || '-').trim().toLocaleUpperCase('tr-TR');
-    const options = REMOTE_OPTIONS_BY_MOTOR[key] || ['-'];
+    if (!remoteEl) return;
+    const options = optionValuesForInput(remoteEl);
     const previous = preserve ? String(remoteEl.value || '-') : '-';
-    remoteEl.innerHTML = options.map(v => `<option>${escapeHtml(v)}</option>`).join('');
-    remoteEl.value = options.includes(previous) ? previous : '-';
+    if (!preserve || !options.includes(previous)) remoteEl.value = '-';
+    const box = remoteEl.closest('.excel-combo');
+    if (box && box.classList.contains('open')) buildComboMenu(remoteEl, box);
   }
 
   function bindStrictInputs() {
@@ -704,6 +709,7 @@ ${err.message}`);
     $('fitPreviewBtn').addEventListener('click', fitPreview);
     $('calcBtn').addEventListener('click', openCalculator);
     $('helpBtn').addEventListener('click', showHelp);
+    $('motor').addEventListener('input', () => { updateRemoteOptions(true); });
     $('motor').addEventListener('change', () => { updateRemoteOptions(true); updatePreview(); });
     $('calcComputeBtn').addEventListener('click', () => {
       try { calculateMissing(); } catch (err) { $('calcResult').textContent = err.message; }
