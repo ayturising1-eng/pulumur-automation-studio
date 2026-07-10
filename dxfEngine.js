@@ -6,8 +6,35 @@
     PROFILE: 1,
     FABRIC: 42,
     RAY: 5,
+    'Ray - Yan Görünüş': 5,
+    'Ray - Üst Görünüş': 5,
+    'Ray - Ön Görünüş': 5,
     POST: 6,
+    'Dikme - Yan Görünüş': 6,
     WALL: 8,
+    'Duvar - Yan Görünüş': 8,
+    'Blok - Yan Görünüş': 8,
+    'Dikme - Üst Görünüş': 6,
+    'Dikme - Ön Görünüş': 6,
+    'Oluk - Yan Görünüş': 7,
+    'Oluk - Üst Görünüş': 7,
+    'Oluk - Ön Görünüş': 7,
+    'Duvar - Üst Görünüş': 8,
+    'Ölçüler - Yan Görünüş': 42,
+    'Ölçüler - Üst Görünüş': 42,
+    'Ölçüler - Ön Görünüş': 42,
+    'Ölçüler - Sağ Görünüş': 42,
+    'Ölçüler - Ana': 42,
+    'Ölçüler - Detay': 42,
+    'Bloklar - Sabit': 8,
+    'Bloklar - Ray Uçları': 8,
+    'Ürün Yerleşimi - Sürme': 4,
+    'Ürün Yerleşimi - Zipper': 130,
+    'Ürün Yerleşimi - Giyotin': 200,
+    'Profil - Yan Kayıt - Yan Görünüş': 30,
+    'Profil - Yan Kayıt - Üst Görünüş': 30,
+    'Profil - Yan Kayıt - Ön Görünüş': 30,
+    'Zone - Önizleme Kontrol': 1,
     TOPWALL: 8,
     HATCH_WALL: 8,
     HATCH_FABRIC: 42,
@@ -64,7 +91,12 @@
     return Number(n.toFixed(6)).toString();
   }
 
-  function layerColor(layer) { return COLOR[layer] ?? 7; }
+  function layerColor(layer) {
+    if (COLOR[layer] !== undefined) return COLOR[layer];
+    const clean = cleanText(layer);
+    const match = Object.keys(COLOR).find(k => cleanText(k) === clean);
+    return match ? COLOR[match] : 7;
+  }
   function entityColor(e) { return Number.isFinite(Number(e && e.color)) ? Number(e.color) : layerColor(e && e.layer); }
 
   function headerSection() {
@@ -108,11 +140,22 @@
     ];
   }
 
-  function layerTable(layers) {
-    const unique = Array.from(new Set(['0', ...layers, 'BLOCK', 'AUX'].map(x => cleanText(x) || '0')));
+  function normalizedHiddenLayerSet(hiddenLayers) {
+    const out = new Set();
+    Object.entries(hiddenLayers || {}).forEach(([name, hidden]) => {
+      if (hidden) out.add(cleanText(name) || '0');
+    });
+    return out;
+  }
+
+  function layerTable(layers, hiddenLayers = {}) {
+    const unique = Array.from(new Set(['0', ...layers, 'Ölçüler - Ana', 'Ölçüler - Detay', 'BLOCK', 'AUX'].map(x => cleanText(x) || '0')));
+    const hidden = normalizedHiddenLayerSet(hiddenLayers);
     const out = [pair(0, 'TABLE'), pair(2, 'LAYER'), pair(70, unique.length)];
     unique.forEach(layer => {
-      out.push(pair(0, 'LAYER'), pair(2, layer), pair(70, 64), pair(62, layerColor(layer)), pair(6, 'CONTINUOUS'));
+      const color = Math.abs(layerColor(layer));
+      const layerColorValue = hidden.has(layer) ? -color : color;
+      out.push(pair(0, 'LAYER'), pair(2, layer), pair(70, 64), pair(62, layerColorValue), pair(6, 'CONTINUOUS'));
     });
     out.push(pair(0, 'ENDTAB'));
     return out;
@@ -147,8 +190,8 @@
     ];
   }
 
-  function tablesSection(layers) {
-    return [pair(0, 'SECTION'), pair(2, 'TABLES'), ...ltypeTable(), ...layerTable(layers), ...styleTable(), ...dimstyleTable(), pair(0, 'ENDSEC')];
+  function tablesSection(layers, hiddenLayers = {}) {
+    return [pair(0, 'SECTION'), pair(2, 'TABLES'), ...ltypeTable(), ...layerTable(layers, hiddenLayers), ...styleTable(), ...dimstyleTable(), pair(0, 'ENDSEC')];
   }
 
   function lineEntity(e) {
@@ -420,14 +463,43 @@ function collectSharedBlocks(drawing, sourceBlocks) {
     return {};
   }
 
+
+  function dimensionDxfLayer(entity) {
+    const type = String((entity && entity.edit && entity.edit.dimensionType) || (entity && entity.dimensionFilterType) || 'main').toLowerCase();
+    return type === 'detail' ? 'Ölçüler - Detay' : 'Ölçüler - Ana';
+  }
+
+  function prepareDrawingForDxf(drawing) {
+    const next = { ...(drawing || {}) };
+    next.layers = Array.from(new Set([...(drawing.layers || []), 'Ölçüler - Ana', 'Ölçüler - Detay']));
+    next.entities = (drawing.entities || []).map(entity => {
+      if (!entity) return entity;
+      if (entity.type === 'dimension') {
+        const layer = dimensionDxfLayer(entity);
+        return {
+          ...entity,
+          layer,
+          graphics: (entity.graphics || []).map(ge => ({ ...ge, layer }))
+        };
+      }
+      if ((entity.type === 'text' || entity.type === 'mtext') && entity.dimensionFilterType) {
+        return { ...entity, layer: dimensionDxfLayer(entity) };
+      }
+      return entity;
+    });
+    return next;
+  }
+
   function toDxf(drawing) {
+    drawing = prepareDrawingForDxf(drawing || {});
     const sourceBlocks = getBlocks(drawing);
     const blocks = collectSharedBlocks(drawing, sourceBlocks);
     collectDimensionBlocks(drawing, blocks);
     const layers = drawing.layers && drawing.layers.length ? drawing.layers : ['OUTLINE', 'TEXT'];
+    const hiddenLayers = drawing.hiddenLayers || drawing.dxfHiddenLayers || {};
     const out = [];
     append(out, headerSection());
-    append(out, tablesSection(layers));
+    append(out, tablesSection(layers, hiddenLayers));
     append(out, blocksSection(blocks));
     out.push(pair(0, 'SECTION'), pair(2, 'ENTITIES'));
     (drawing.entities || []).forEach(e => {

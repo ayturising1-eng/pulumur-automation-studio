@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Pülümür Automation Studio" />
   <title>Pülümür Automation Studio</title>
-  <link rel="manifest" href="manifest.webmanifest?v=8.2.56" />
+  <link rel="manifest" href="manifest.webmanifest?v=8.2.67" />
   <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="style.css?v=8.2.56" />
+  <link rel="stylesheet" href="style.css?v=8.2.67" />
 </head>
 <body>
   <header class="app-header">
@@ -116,10 +116,16 @@
         <div class="preview-title">
           <h2 id="previewTitle">Çizim Ön İzleme</h2>
           <p id="statusText" class="sr-only">Ölçüleri girince önizleme otomatik güncellenir.</p>
-          <div class="preview-control-row">
-            <button id="previewBtn" class="soft-btn preview-tool-btn" type="button">Önizlemeyi Yenile</button>
-            <button id="expandPreviewBtn" class="soft-btn preview-tool-btn" type="button">Önizlemeyi Büyüt</button>
-            <button id="fitPreviewBtn" class="secondary-btn preview-tool-btn" type="button">Çizimi Sığdır</button>
+          <div class="preview-toolbar-row">
+            <div class="preview-control-row">
+              <button id="previewBtn" class="soft-btn preview-tool-btn" type="button">Önizlemeyi Yenile</button>
+              <button id="expandPreviewBtn" class="soft-btn preview-tool-btn" type="button">Önizlemeyi Büyüt</button>
+              <button id="fitPreviewBtn" class="secondary-btn preview-tool-btn" type="button">Çizimi Sığdır</button>
+            </div>
+            <div class="preview-filter-row" aria-label="Ölçü filtreleri">
+              <button id="showMainDims" class="preview-toggle-btn is-on" type="button" aria-pressed="true"><span class="toggle-dot" aria-hidden="true"></span><span id="showMainDimsLabel">Ana ölçüleri göster</span></button>
+              <button id="showAllDims" class="preview-toggle-btn is-off" type="button" aria-pressed="false"><span class="toggle-dot" aria-hidden="true"></span><span id="showAllDimsLabel">Tüm ölçüleri göster</span></button>
+            </div>
           </div>
         </div>
         <div class="preview-download-actions">
@@ -127,7 +133,7 @@
           <button id="generateBtn" class="primary-btn preview-tool-btn" type="button">DXF İndir</button>
         </div>
       </div>
-      <div id="preview" class="preview-canvas" role="img" aria-label="DXF çizim önizlemesi"></div>
+      <div id="preview" class="preview-canvas" role="img" tabindex="-1" aria-label="DXF çizim önizlemesi"></div>
     </aside>
   </main>
 
@@ -168,11 +174,11 @@
     </form>
   </dialog>
 
-  <script src="blocks/filteredBlocks.js?v=8.2.56"></script>
-  <script src="peri01ExcelBridge.js?v=8.2.56"></script>
-  <script src="peri01Geometry.js?v=8.2.56"></script>
-  <script src="dxfEngine.js?v=8.2.56"></script>
+  <script src="blocks/filteredBlocks.js?v=8.2.67"></script>
+  <script src="peri01ExcelBridge.js?v=8.2.67"></script>
+  <script src="peri01Geometry.js?v=8.2.67"></script>
+  <script src="dxfEngine.js?v=8.2.67"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="app.js?v=8.2.56"></script>
+  <script src="app.js?v=8.2.67"></script>
 </body>
 </html>

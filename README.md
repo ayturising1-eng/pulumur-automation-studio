@@ -18,3 +18,17 @@ Bu sürümde:
 - Parapetli karşı görünüş ölçüleri sadeleştirildi.
 - Çoklu poz toplam üst ölçüsü ray arka mekanizma blok uçlarına bağlandı.
 - PDF çıktısı vektörel çizim kalitesine yükseltildi.
+
+
+## v8.2.77
+- Cam kaydı profilleri önizlemede tıklanabilir hale getirildi.
+- Cam kaydı profil editörü eklendi: Standart 100x100x2, 40x130x2 ve Diğer.
+- Yan görünüşte profil yüksekliği En değerine, üst görünüşte profil genişliği Boy değerine bağlandı.
+- Et kalınlığı için iç dikdörtgen ofset çizimi eklendi.
+
+
+## v8.2.79
+- Cam kaydı uzun profillerinde iç et/ofset çizimi kaldırıldı.
+- Et/ofset çizimi sadece destek dikmesinin üst kesit görünüşünde bırakıldı.
+- Yan destek dikmesinin alt ucu sabit, üst ucu cam kaydı profil yüksekliğine göre uzayıp/kısalacak şekilde düzenlendi.
+- Sağ yan görünüşte aynalanan cam kaydı/destek interaction alanları korunur.

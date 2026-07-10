@@ -23,9 +23,15 @@
   };
   let currentLanguage = 'tr';
   let deferredInstallPrompt = null;
+  let pendingDimensionEdit = null;
+  let suppressFormPreviewUpdate = false;
 
   let wrappingFields = false;
   const previewState = { zoom: 1, baseScale: 1, minZoom: 0.20, maxZoom: 18, dragActive: false, dragStartX: 0, dragStartY: 0, dragScrollLeft: 0, dragScrollTop: 0, pointerId: null };
+  const previewDimensionFilter = { main: true, all: false };
+  let manualPostPlacementMode = 'standard';
+  let glassTrackProfileState = { mode: 'standard', en: 100, boy: 100, et: 2 };
+  let glassSupportProfileState = { left: null, right: null };
   const EXCEL_COMBO_OPTIONS = {
     motor: ['-', 'RISING MOTOR', 'SOMFY RTS', 'SOMFY IO'],
     fabric: [
@@ -62,6 +68,54 @@
     triangleJoinery: 'HAYIR', waterStandard: 'EVET'
   };
 
+  // V8.2.66: Ölçü -> Zone -> Profil / Ürün -> görünüş ilişkisi için UI altyapısı
+  const SMART_ACTION_LABELS = {
+    tr: { resize: 'Sadece ölçüyü değiştir', addSameProfile: 'Bu aralığa aynı profilden ekle', addDifferentProfile: 'Bu aralığa farklı profil ekle', placeProduct: 'Bu alana ürün yerleştir', editProfile: 'Mevcut elemanı / profili düzenle', removeElement: 'Mevcut elemanı kaldır' },
+    en: { resize: 'Resize this dimension only', addSameProfile: 'Add same profile to this gap', addDifferentProfile: 'Add different profile to this gap', placeProduct: 'Place product in this zone', editProfile: 'Edit current element / profile', removeElement: 'Remove current element' }
+  };
+  const SMART_PRODUCT_OPTIONS = [
+    { id: 'sliding_glass', tr: 'Sürme Cam', en: 'Sliding Glass' },
+    { id: 'guillotine_glass', tr: 'Giyotin / Yürüyen Sistem', en: 'Guillotine System' },
+    { id: 'zipper', tr: 'Zipper Perde', en: 'Zipper Screen' },
+    { id: 'fixed_glass', tr: 'Sabit Cam', en: 'Fixed Glass' },
+    { id: 'door', tr: 'Kapı', en: 'Door' }
+  ];
+  const SMART_PROFILE_OPTIONS = [
+    { id: 'same_post', tr: 'Aynı dikme profili', en: 'Same post profile', side: 100, top: 100 },
+    { id: 'side_register_100', tr: 'Yan Kayıt 100', en: 'Side register 100', side: 100, top: 100 },
+    { id: 'side_register_40x130', tr: 'Yan Kayıt 40x130', en: 'Side register 40x130', side: 40, top: 130 }
+  ];
+
+
+  function sanitizeGlassTrackProfile(profile) {
+    const raw = profile || {};
+    let mode = String(raw.mode || 'standard').trim().toLowerCase();
+    let en = Number(raw.en);
+    let boy = Number(raw.boy);
+    let et = Number(raw.et);
+    if (mode === '40x130x2' || mode === '40x130') {
+      en = 40; boy = 130; et = 2; mode = '40x130x2';
+    } else if (mode !== 'other') {
+      en = 100; boy = 100; et = 2; mode = 'standard';
+    }
+    en = Math.max(5, Number.isFinite(en) ? en : 100);
+    boy = Math.max(5, Number.isFinite(boy) ? boy : 100);
+    et = Math.max(0, Number.isFinite(et) ? et : 2);
+    et = Math.min(et, Math.max(0, Math.min(en, boy) / 2 - 0.1));
+    return { mode, en, boy, et };
+  }
+
+  function sanitizeOptionalGlassTrackProfile(profile) {
+    if (!profile) return null;
+    return sanitizeGlassTrackProfile(profile);
+  }
+
+  function supportProfileScopeLabel(scope, isEn) {
+    if (scope === 'left') return isEn ? 'first position support' : 'ilk poz destek dikmesi';
+    if (scope === 'right') return isEn ? 'last position support' : 'son poz destek dikmesi';
+    return isEn ? 'support post' : 'destek dikmesi';
+  }
+
   const UI_TEXT = {
     tr: {
       langLabel: 'Dil', helpBtn: 'Yardım', installBtn: 'Ana Ekrana Ekle',
@@ -76,7 +130,7 @@
       options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
       options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
       extra_triangleJoinery: 'Üçgen Doğrama', extra_waterStandard: 'Su Çıkışı Standart mı?', quickTestsHead: 'Hızlı Testler',
-      previewTitle: 'Çizim Ön İzleme', previewBtn: 'Önizlemeyi Yenile', expandPreviewBtn: 'Önizlemeyi Büyüt', fitPreviewBtn: 'Çizimi Sığdır', shrinkPreviewBtn: 'Önizlemeyi Küçült',
+      previewTitle: 'Çizim Ön İzleme', previewBtn: 'Önizlemeyi Yenile', expandPreviewBtn: 'Önizlemeyi Büyüt', fitPreviewBtn: 'Çizimi Sığdır', shrinkPreviewBtn: 'Önizlemeyi Küçült', showMainDimsLabel: 'Ana ölçüleri göster', showAllDimsLabel: 'Tüm ölçüleri göster',
       pdfBtn: 'PDF İndir', generateBtn: 'DXF İndir', resetBtn: 'Değerleri Resetle', calcBtn: 'Pülümür Hesaplayıcı',
       calcTitle: 'Pülümür Hesaplayıcı', calcSub: '4 satırdan herhangi 3 tanesini doldur. Boş olan değer hesaplanır.',
       calcGuide: '<strong>TR</strong><ul><li>4 alandan 3 tanesini doldur.</li><li>Hesaplanacak alanı boş bırak.</li><li>Hesapla’ya bas.</li><li>Sonucu ana forma aktar.</li></ul>',
@@ -101,7 +155,7 @@
       options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
       options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
       extra_triangleJoinery: 'Triangle Joinery', extra_waterStandard: 'Standard Water Outlet?', quickTestsHead: 'Quick Tests',
-      previewTitle: 'Drawing Preview', previewBtn: 'Refresh Preview', expandPreviewBtn: 'Expand Preview', fitPreviewBtn: 'Fit Drawing', shrinkPreviewBtn: 'Collapse Preview',
+      previewTitle: 'Drawing Preview', previewBtn: 'Refresh Preview', expandPreviewBtn: 'Expand Preview', fitPreviewBtn: 'Fit Drawing', shrinkPreviewBtn: 'Collapse Preview', showMainDimsLabel: 'Show main dimensions', showAllDimsLabel: 'Show all dimensions',
       pdfBtn: 'Download PDF', generateBtn: 'Download DXF', resetBtn: 'Reset Values', calcBtn: 'Pulumur Calculator',
       calcTitle: 'Pulumur Calculator', calcSub: 'Fill any 3 of the 4 rows. The empty value will be calculated.',
       calcGuide: '<strong>EN</strong><ul><li>Fill 3 of the 4 fields.</li><li>Leave one field empty.</li><li>Click Calculate.</li><li>Transfer the result to the main form.</li></ul>',
@@ -214,6 +268,8 @@
     setText('calcTransferBtn', txt.calcTransferBtn);
     setText('calcClearBtn', txt.calcClearBtn);
     setText('helpTitle', txt.helpTitle);
+    setText('showMainDimsLabel', txt.showMainDimsLabel);
+    setText('showAllDimsLabel', txt.showAllDimsLabel);
     const helpClose = document.querySelector('#helpDialog .modal-actions button');
     if (helpClose) helpClose.textContent = txt.helpCloseBtn;
     Object.entries(txt.placeholders).forEach(([id,val]) => { if ($(id)) $(id).placeholder = val; });
@@ -271,7 +327,7 @@
     }
 
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.56').catch(() => {}), { once: true });
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.67').catch(() => {}), { once: true });
     }
   }
 
@@ -285,6 +341,9 @@
     ['rayCount', 'postCount'].forEach(id => {
       if ($(id)) $(id).dataset.userEdited = 'false';
     });
+    manualPostPlacementMode = 'standard';
+    glassTrackProfileState = { mode: 'standard', en: 100, boy: 100, et: 2 };
+    glassSupportProfileState = { left: null, right: null };
     applyAutoRayPost(true);
   }
 
@@ -322,7 +381,15 @@
       if (BOOLEAN_FIELD_IDS.includes(id)) normalized = normalizeYesNo(normalized);
       acc[id] = normalized;
       return acc;
-    }, { sideTrack: 'HAYIR' });
+    }, {
+      sideTrack: 'HAYIR',
+      __manualPostPlacementMode: manualPostPlacementMode,
+      __glassTrackProfile: sanitizeGlassTrackProfile(glassTrackProfileState),
+      __glassTrackSupportProfiles: {
+        left: sanitizeOptionalGlassTrackProfile(glassSupportProfileState.left),
+        right: sanitizeOptionalGlassTrackProfile(glassSupportProfileState.right)
+      }
+    });
   }
 
   function firstNumber(value) {
@@ -367,7 +434,7 @@
     }
   }
 
-  function updatePreview() {
+  function updatePreview(resetZoom = true) {
     try {
       applyAutoRayPost(false);
       const data = collectForm();
@@ -375,9 +442,10 @@
       const drawing = window.PulumurGeometry.buildDrawing(data);
       syncUpperInputWrap(data);
       lastDrawing = drawing;
-      renderPreview(drawing, true);
+      renderPreview(drawing, resetZoom);
+      applyPreviewDimensionFilter();
       const d = drawing.input;
-      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan.`;
+      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan. V66: Ön/üst/yan görünüşte akıllı ölçülere tıklayıp ölçü, zone, profil/ürün altyapısını yönetebilirsin.`;
       return drawing;
     } catch (err) {
       const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
@@ -385,6 +453,63 @@
       statusText.textContent = err.message;
       return null;
     }
+  }
+
+
+  function isPreviewToggleOn(el) {
+    return !!(el && el.classList.contains('is-on'));
+  }
+
+  function setPreviewToggleState(el, on) {
+    if (!el) return;
+    el.classList.toggle('is-on', !!on);
+    el.classList.toggle('is-off', !on);
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  function applyPreviewDimensionFilter() {
+    const mainEl = $('showMainDims');
+    const allEl = $('showAllDims');
+    const showMain = isPreviewToggleOn(mainEl);
+    const showAll = showMain && isPreviewToggleOn(allEl);
+    previewDimensionFilter.main = showMain;
+    previewDimensionFilter.all = showAll;
+
+    preview.querySelectorAll('.editable-dimension, .preview-dimension-plain').forEach(node => {
+      const type = (node.dataset.dimensionType || 'main').toLowerCase();
+      const isDetail = type === 'detail';
+      const visible = showMain ? (showAll ? true : !isDetail) : false;
+      node.style.display = visible ? '' : 'none';
+    });
+  }
+
+  function bindPreviewFilterControls() {
+    const mainEl = $('showMainDims');
+    const allEl = $('showAllDims');
+    if (!mainEl || !allEl) return;
+
+    const applyState = () => {
+      if (!isPreviewToggleOn(mainEl)) setPreviewToggleState(allEl, false);
+      applyPreviewDimensionFilter();
+    };
+
+    mainEl.onclick = () => {
+      const next = !isPreviewToggleOn(mainEl);
+      setPreviewToggleState(mainEl, next);
+      if (!next) setPreviewToggleState(allEl, false);
+      applyState();
+    };
+
+    allEl.onclick = () => {
+      const next = !isPreviewToggleOn(allEl);
+      if (next) setPreviewToggleState(mainEl, true);
+      setPreviewToggleState(allEl, next);
+      applyState();
+    };
+
+    setPreviewToggleState(mainEl, true);
+    setPreviewToggleState(allEl, false);
+    applyState();
   }
 
   function getPreviewStage() {
@@ -424,13 +549,60 @@
 
   function renderPreview(drawing, resetZoom = true) {
     const svg = window.PulumurGeometry.renderSvg(drawing);
-    preview.innerHTML = `<div class="preview-stage">${svg}</div>`;
+
     if (resetZoom) {
+      preview.innerHTML = `<div class="preview-stage">${svg}</div>`;
       previewState.zoom = 1;
       preview.scrollLeft = 0;
       preview.scrollTop = 0;
+      window.requestAnimationFrame(() => applyPreviewScale());
+      return;
     }
-    window.requestAnimationFrame(() => applyPreviewScale());
+
+    // Dinamik ölçü düzenleme: mevcut zoom/pan sahnesini bozmadan sadece SVG içeriğini yenile.
+    const oldStage = getPreviewStage();
+    const oldSvg = getPreviewSvg();
+    const keepLeftRatio = preview.scrollLeft / Math.max(1, preview.scrollWidth - preview.clientWidth);
+    const keepTopRatio = preview.scrollTop / Math.max(1, preview.scrollHeight - preview.clientHeight);
+    const keepScrollLeft = preview.scrollLeft;
+    const keepScrollTop = preview.scrollTop;
+    const keepStageWidth = oldStage ? oldStage.style.width : '';
+    const keepStageHeight = oldStage ? oldStage.style.height : '';
+
+    if (oldStage && oldSvg) {
+      const temp = document.createElement('div');
+      temp.innerHTML = svg;
+      const nextSvg = temp.firstElementChild;
+      if (nextSvg) {
+        oldSvg.replaceWith(nextSvg);
+        if (keepStageWidth) oldStage.style.width = keepStageWidth;
+        if (keepStageHeight) oldStage.style.height = keepStageHeight;
+        preview.scrollLeft = keepScrollLeft;
+        preview.scrollTop = keepScrollTop;
+        window.requestAnimationFrame(() => {
+          preview.scrollLeft = keepScrollLeft;
+          preview.scrollTop = keepScrollTop;
+        });
+        return;
+      }
+    }
+
+    // Yedek yol: stage yoksa kur ama zoom resetleme.
+    preview.innerHTML = `<div class="preview-stage">${svg}</div>`;
+    const stage = getPreviewStage();
+    const newSvg = getPreviewSvg();
+    if (stage && newSvg) {
+      const box = getSvgViewBoxSize(newSvg);
+      const totalScale = Math.max(0.0001, (Number(previewState.baseScale) || 1) * (Number(previewState.zoom) || 1));
+      stage.style.width = `${Math.max(80, box.width * totalScale)}px`;
+      stage.style.height = `${Math.max(80, box.height * totalScale)}px`;
+    }
+    preview.scrollLeft = keepScrollLeft;
+    preview.scrollTop = keepScrollTop;
+    window.requestAnimationFrame(() => {
+      preview.scrollLeft = keepScrollLeft || keepLeftRatio * Math.max(1, preview.scrollWidth - preview.clientWidth);
+      preview.scrollTop = keepScrollTop || keepTopRatio * Math.max(1, preview.scrollHeight - preview.clientHeight);
+    });
   }
 
   function fitPreview() {
@@ -456,7 +628,590 @@
     preview.scrollTop = Math.max(0, worldY * newScale - localY);
   }
 
+
+  function splitEditableList(value) {
+    return String(value ?? '').split(';').map(x => x.trim()).filter(Boolean);
+  }
+
+  function updateEditableListValue(field, index, value, silent = false) {
+    const el = $(field);
+    if (!el || String(field || '').startsWith('__')) return;
+    const clean = String(value ?? '').replace(/[^0-9]/g, '');
+    if (!clean || Number(clean) <= 0) return;
+    if (field === 'frontHeight') {
+      el.value = clean;
+      if (!silent) {
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+    const list = splitEditableList(el.value);
+    const count = Math.max(index + 1, list.length, lastDrawing && lastDrawing.input ? (lastDrawing.input.sidePositionCount || 1) : 1);
+    const fallback = list[0] || clean;
+    while (list.length < count) list.push(fallback);
+    list[index] = clean;
+    el.value = count > 1 ? list.join(';') : clean;
+    if (field === 'width') { const postEl = $('postCount'); const rayEl = $('rayCount'); if (postEl) postEl.dataset.userEdited = 'false'; if (rayEl) rayEl.dataset.userEdited = 'false'; }
+    if (!silent) {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function currentEditableListValue(field, index, fallback) {
+    const el = $(field);
+    if (!el || String(field || '').startsWith('__')) return fallback || '';
+    if (field === 'frontHeight') return String(el.value || fallback || '').trim();
+    const list = splitEditableList(el.value);
+    return String(list[index] || list[0] || fallback || '').trim();
+  }
+
+  function smartText(key, fallback) {
+    const lang = currentLanguage === 'en' ? 'en' : 'tr';
+    return key && key[lang] ? key[lang] : fallback;
+  }
+
+  function dimensionMetaFromHit(hit) {
+    return {
+      dimId: hit.dataset.dimId || '',
+      field: hit.dataset.editField || '',
+      index: Math.max(0, Number(hit.dataset.editIndex || 0) || 0),
+      label: hit.dataset.editLabel || 'Ölçü',
+      value: hit.dataset.editValue || '',
+      view: hit.dataset.view || '',
+      zoneId: hit.dataset.zoneId || '',
+      editable: hit.dataset.editable !== 'false',
+      dimensionType: hit.dataset.dimensionType || 'main',
+      actionType: hit.dataset.actionType || 'main_resize',
+      canResize: hit.dataset.canResize === 'true',
+      canAddSameProfile: hit.dataset.canAddSameProfile === 'true',
+      canAddDifferentProfile: hit.dataset.canAddDifferentProfile === 'true',
+      canPlaceProduct: hit.dataset.canPlaceProduct === 'true',
+      canRemoveElement: hit.dataset.canRemoveElement === 'true',
+      passiveReason: hit.dataset.passiveReason || '',
+      profileInstanceId: hit.dataset.profileInstanceId || '',
+      layer: hit.dataset.layer || ''
+    };
+  }
+
+  function viewLabel(view) {
+    const isEn = currentLanguage === 'en';
+    const map = isEn
+      ? { Top: 'Top View', Front: 'Front View', Side: 'Side View', Right: 'Right View' }
+      : { Top: 'Üst Görünüş', Front: 'Ön Görünüş', Side: 'Yan Görünüş', Right: 'Sağ Görünüş' };
+    return map[view] || view || (isEn ? 'Drawing' : 'Çizim');
+  }
+
+  function ensureDimensionEditOverlay() {
+    let overlay = $('dimensionEditOverlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'dimensionEditOverlay';
+    overlay.className = 'dim-edit-overlay v66-smart-dim-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <form id="dimensionEditForm" class="dim-edit-card v66-smart-dim-card">
+        <div class="dim-edit-title" id="dimensionEditTitle">Ölçü Düzenle</div>
+        <div class="dim-edit-meta" id="dimensionEditMeta"></div>
+        <label class="dim-edit-label" id="dimensionValueWrap">
+          <span id="dimensionEditLabel">Yeni değer</span>
+          <input id="dimensionEditInput" type="text" inputmode="numeric" autocomplete="off" />
+        </label>
+        <fieldset class="v66-action-fieldset">
+          <legend id="dimensionActionLegend">İşlem</legend>
+          <label><input type="radio" name="dimensionAction" value="resize" checked /> <span id="dimActionResize">Sadece ölçüyü değiştir</span></label>
+          <label><input type="radio" name="dimensionAction" value="addSameProfile" /> <span id="dimActionAddSame">Bu aralığa aynı profilden ekle</span></label>
+          <label><input type="radio" name="dimensionAction" value="addDifferentProfile" /> <span id="dimActionAddDifferent">Bu aralığa farklı profil ekle</span></label>
+          <label><input type="radio" name="dimensionAction" value="placeProduct" /> <span id="dimActionProduct">Bu alana ürün yerleştir</span></label>
+          <label><input type="radio" name="dimensionAction" value="editProfile" /> <span id="dimActionProfile">Mevcut elemanı / profili düzenle</span></label>
+        </fieldset>
+        <div class="v66-action-options" id="dimensionActionOptions">
+          <label id="productOptionWrap">Ürün
+            <select id="dimensionProductSelect"></select>
+          </label>
+          <label id="profileOptionWrap">Profil
+            <select id="dimensionProfileSelect"></select>
+          </label>
+          <div class="v66-profile-hint" id="dimensionProfileHint"></div>
+        </div>
+        <div id="dimensionEditError" class="dim-edit-error" aria-live="polite"></div>
+        <div class="dim-edit-actions">
+          <button id="dimensionEditCancel" type="button" class="dim-edit-cancel">İptal</button>
+          <button id="dimensionEditApply" type="submit" class="dim-edit-apply">Tamam</button>
+        </div>
+      </form>`;
+    previewPanel.appendChild(overlay);
+
+    const input = overlay.querySelector('#dimensionEditInput');
+    const form = overlay.querySelector('#dimensionEditForm');
+    const cancel = overlay.querySelector('#dimensionEditCancel');
+    const productSelect = overlay.querySelector('#dimensionProductSelect');
+    const profileSelect = overlay.querySelector('#dimensionProfileSelect');
+    SMART_PRODUCT_OPTIONS.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = currentLanguage === 'en' ? p.en : p.tr;
+      productSelect.appendChild(opt);
+    });
+    SMART_PROFILE_OPTIONS.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = currentLanguage === 'en' ? p.en : p.tr;
+      profileSelect.appendChild(opt);
+    });
+
+    const closeOverlay = () => {
+      overlay.hidden = true;
+      pendingDimensionEdit = null;
+      focusPreviewCanvas();
+    };
+
+    const refreshActionOptions = () => {
+      const action = (overlay.querySelector('input[name="dimensionAction"]:checked') || {}).value || 'resize';
+      overlay.querySelector('#productOptionWrap').hidden = action !== 'placeProduct';
+      overlay.querySelector('#profileOptionWrap').hidden = !['addSameProfile', 'addDifferentProfile', 'editProfile'].includes(action);
+      const prof = SMART_PROFILE_OPTIONS.find(p => p.id === profileSelect.value) || SMART_PROFILE_OPTIONS[0];
+      const hint = currentLanguage === 'en'
+        ? `View relation: side view ${prof.side} mm / top view ${prof.top} mm.`
+        : `Görünüş ilişkisi: yan görünüş ${prof.side} mm / üst görünüş ${prof.top} mm.`;
+      overlay.querySelector('#dimensionProfileHint').textContent = ['addSameProfile', 'addDifferentProfile', 'editProfile'].includes(action) ? hint : '';
+    };
+
+    overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => r.addEventListener('change', refreshActionOptions));
+    profileSelect.addEventListener('change', refreshActionOptions);
+
+    input.addEventListener('input', () => {
+      const clean = String(input.value || '').replace(/[^0-9]/g, '');
+      if (input.value !== clean) input.value = clean;
+      overlay.querySelector('#dimensionEditError').textContent = '';
+    });
+
+    cancel.addEventListener('click', closeOverlay);
+    overlay.addEventListener('mousedown', evt => { if (evt.target === overlay) closeOverlay(); });
+
+    form.addEventListener('submit', evt => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      if (!pendingDimensionEdit) return;
+      const meta = pendingDimensionEdit;
+      const action = (overlay.querySelector('input[name="dimensionAction"]:checked') || {}).value || 'resize';
+      const clean = String(input.value || '').replace(/[^0-9]/g, '');
+      const error = overlay.querySelector('#dimensionEditError');
+
+      const finishUpdate = (message) => {
+        overlay.hidden = true;
+        pendingDimensionEdit = null;
+        suppressFormPreviewUpdate = true;
+        try { updatePreview(false); }
+        finally { window.setTimeout(() => { suppressFormPreviewUpdate = false; }, 450); }
+        if (message) statusText.textContent = message;
+      };
+
+      if (action === 'resize') {
+        if (!meta.canResize || String(meta.field || '').startsWith('__')) {
+          error.textContent = currentLanguage === 'en' ? 'This dimension is not connected to a direct resize field yet.' : 'Bu ölçü henüz doğrudan ölçü değiştirme alanına bağlı değil.';
+          return;
+        }
+        if (!clean || Number(clean) <= 0) {
+          error.textContent = currentLanguage === 'en' ? 'Enter a positive number.' : 'Pozitif bir sayı gir.';
+          input.focus();
+          return;
+        }
+        const editedEl = $(meta.field);
+        if (editedEl && editedEl._previewTimer) window.clearTimeout(editedEl._previewTimer);
+        updateEditableListValue(meta.field, meta.index, clean, true);
+        finishUpdate(currentLanguage === 'en' ? 'Dimension updated.' : 'Ölçü güncellendi.');
+        return;
+      }
+
+      if (action === 'addSameProfile') {
+        const postEl = $('postCount');
+        const current = Number(String(postEl && postEl.value ? postEl.value : '').split(';')[0]) || (lastDrawing && lastDrawing.input ? Number(lastDrawing.input.postCount) || 0 : 0);
+        if (postEl) {
+          postEl.value = String(Math.max(1, current + 1));
+          postEl.dataset.userEdited = 'true';
+        }
+        finishUpdate(currentLanguage === 'en' ? 'Same profile/post infrastructure applied: post count increased by 1.' : 'Aynı profil/dikme ekleme altyapısı çalıştı: dikme sayısı 1 artırıldı.');
+        return;
+      }
+
+      if (action === 'addDifferentProfile' || action === 'editProfile') {
+        const profileId = profileSelect.value;
+        const prof = SMART_PROFILE_OPTIONS.find(p => p.id === profileId) || SMART_PROFILE_OPTIONS[0];
+        statusText.textContent = currentLanguage === 'en'
+          ? `Profile relation saved as infrastructure: ${prof.en}, side ${prof.side} mm / top ${prof.top} mm. Detailed geometry will be connected in the next step.`
+          : `Profil ilişki altyapısı kaydedildi: ${prof.tr}, yan ${prof.side} mm / üst ${prof.top} mm. Detay çizim sonraki aşamada bağlanacak.`;
+        closeOverlay();
+        return;
+      }
+
+      if (action === 'placeProduct') {
+        const productId = productSelect.value;
+        const product = SMART_PRODUCT_OPTIONS.find(p => p.id === productId) || SMART_PRODUCT_OPTIONS[0];
+        statusText.textContent = currentLanguage === 'en'
+          ? `Product placement infrastructure is ready for this zone: ${product.en}. Detailed product drawing will be connected later.`
+          : `Bu zone için ürün yerleşim altyapısı hazırlandı: ${product.tr}. Detay ürün çizimi sonraki aşamada bağlanacak.`;
+        closeOverlay();
+      }
+    });
+
+    overlay.addEventListener('keydown', evt => {
+      if (evt.key === 'Escape') {
+        evt.preventDefault();
+        closeOverlay();
+      }
+    });
+
+    return overlay;
+  }
+
+  function showDimensionEditOverlay(meta) {
+    const overlay = ensureDimensionEditOverlay();
+    pendingDimensionEdit = meta;
+    const isEn = currentLanguage === 'en';
+    const labels = SMART_ACTION_LABELS[isEn ? 'en' : 'tr'];
+    overlay.querySelector('#dimensionEditTitle').textContent = isEn ? 'Edit Smart Dimension' : 'Akıllı Ölçü Düzenle';
+    overlay.querySelector('#dimensionEditMeta').innerHTML = `
+      <b>${isEn ? 'View' : 'Görünüş'}:</b> ${escapeHtml(viewLabel(meta.view))}<br>
+      <b>${isEn ? 'Dimension' : 'Ölçü'}:</b> ${escapeHtml(meta.label || '')}<br>
+      <b>${isEn ? 'Current value' : 'Mevcut değer'}:</b> ${escapeHtml(meta.value || '')} mm<br>
+      <b>Zone:</b> ${escapeHtml(meta.zoneId || '-')}`;
+    overlay.querySelector('#dimensionEditLabel').textContent = isEn ? `${meta.label} value *(mm)` : `${meta.label} değeri *(mm)`;
+    overlay.querySelector('#dimensionActionLegend').textContent = isEn ? 'Action' : 'İşlem';
+    overlay.querySelector('#dimActionResize').textContent = labels.resize;
+    overlay.querySelector('#dimActionAddSame').textContent = labels.addSameProfile;
+    overlay.querySelector('#dimActionAddDifferent').textContent = labels.addDifferentProfile;
+    overlay.querySelector('#dimActionProduct').textContent = labels.placeProduct;
+    overlay.querySelector('#dimActionProfile').textContent = labels.editProfile;
+    overlay.querySelector('#dimensionEditCancel').textContent = isEn ? 'Cancel' : 'İptal';
+    overlay.querySelector('#dimensionEditApply').textContent = isEn ? 'OK' : 'Tamam';
+    overlay.querySelector('#dimensionEditError').textContent = '';
+    overlay.querySelector('#dimensionProductSelect').querySelectorAll('option').forEach((opt, i) => { const p = SMART_PRODUCT_OPTIONS[i]; if (p) opt.textContent = isEn ? p.en : p.tr; });
+    overlay.querySelector('#dimensionProfileSelect').querySelectorAll('option').forEach((opt, i) => { const p = SMART_PROFILE_OPTIONS[i]; if (p) opt.textContent = isEn ? p.en : p.tr; });
+
+    const actionMap = {
+      resize: !!meta.canResize,
+      addSameProfile: !!meta.canAddSameProfile,
+      addDifferentProfile: !!meta.canAddDifferentProfile,
+      placeProduct: !!meta.canPlaceProduct,
+      editProfile: !!meta.canAddDifferentProfile || !!meta.profileInstanceId
+    };
+    overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => {
+      r.disabled = !actionMap[r.value];
+      r.closest('label').classList.toggle('disabled', r.disabled);
+      r.checked = false;
+    });
+    const firstAllowed = Array.from(overlay.querySelectorAll('input[name="dimensionAction"]')).find(r => !r.disabled);
+    if (firstAllowed) firstAllowed.checked = true;
+    const input = overlay.querySelector('#dimensionEditInput');
+    input.value = String(currentEditableListValue(meta.field, meta.index, meta.value) || '').replace(/[^0-9]/g, '');
+    input.disabled = !(firstAllowed && firstAllowed.value === 'resize');
+    overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => r.addEventListener('change', () => { input.disabled = r.value !== 'resize' || r.disabled; }, { once: false }));
+    overlay.hidden = false;
+    const profileSelect = overlay.querySelector('#dimensionProfileSelect');
+    profileSelect.dispatchEvent(new Event('change'));
+    window.setTimeout(() => {
+      if (!input.disabled) {
+        input.focus({ preventScroll: true });
+        input.select();
+      }
+    }, 20);
+  }
+
+  function showPassiveDimensionInfo(meta) {
+    const overlay = ensureDimensionEditOverlay();
+    pendingDimensionEdit = meta;
+    const isEn = currentLanguage === 'en';
+    overlay.querySelector('#dimensionEditTitle').textContent = isEn ? 'Information Dimension' : 'Bilgi Ölçüsü';
+    overlay.querySelector('#dimensionEditMeta').innerHTML = `
+      <b>${isEn ? 'View' : 'Görünüş'}:</b> ${escapeHtml(viewLabel(meta.view))}<br>
+      <b>${isEn ? 'Dimension' : 'Ölçü'}:</b> ${escapeHtml(meta.label || '')}<br>
+      <b>${isEn ? 'Current value' : 'Mevcut değer'}:</b> ${escapeHtml(meta.value || '')} mm<br>
+      <b>${isEn ? 'Note' : 'Not'}:</b> ${escapeHtml(meta.passiveReason || (isEn ? 'This dimension is for information only.' : 'Bu ölçü şu an sadece bilgi amaçlıdır.'))}`;
+    overlay.querySelector('#dimensionValueWrap').hidden = true;
+    overlay.querySelector('.v66-action-fieldset').hidden = true;
+    overlay.querySelector('#dimensionActionOptions').hidden = true;
+    overlay.querySelector('#dimensionEditError').textContent = '';
+    overlay.querySelector('#dimensionEditCancel').textContent = isEn ? 'Close' : 'Kapat';
+    overlay.querySelector('#dimensionEditApply').hidden = true;
+    overlay.hidden = false;
+  }
+
+  function restoreActiveDimensionPanelParts() {
+    const overlay = ensureDimensionEditOverlay();
+    overlay.querySelector('#dimensionValueWrap').hidden = false;
+    overlay.querySelector('.v66-action-fieldset').hidden = false;
+    overlay.querySelector('#dimensionActionOptions').hidden = false;
+    overlay.querySelector('#dimensionEditApply').hidden = false;
+  }
+
+
+  function previewInteractionMetaFromHit(hit) {
+    return {
+      interactionType: hit.dataset.interactionType || '',
+      postIndex: Math.max(0, Number(hit.dataset.postIndex || 0) || 0),
+      currentPostCount: Math.max(0, Number(hit.dataset.currentPostCount || 0) || 0),
+      totalRayCount: Math.max(0, Number(hit.dataset.totalRayCount || 0) || 0),
+      placementMode: (hit.dataset.placementMode || 'standard').toLowerCase() === 'equal' ? 'equal' : 'standard',
+      profileMode: hit.dataset.profileMode || '',
+      profilePart: hit.dataset.profilePart || '',
+      profileScope: hit.dataset.profileScope || '',
+      en: Number(hit.dataset.en || 0) || 0,
+      boy: Number(hit.dataset.boy || 0) || 0,
+      et: Number(hit.dataset.et || 0) || 0
+    };
+  }
+
+
+  function ensureGlassTrackEditorOverlay() {
+    let overlay = $('glassTrackEditorOverlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'glassTrackEditorOverlay';
+    overlay.className = 'dim-edit-overlay glass-track-editor-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <form id="glassTrackEditorForm" class="dim-edit-card glass-track-editor-card">
+        <div class="dim-edit-title" id="glassTrackEditorTitle">Cam Kaydı Profili Düzenle</div>
+        <div class="dim-edit-meta" id="glassTrackEditorMeta"></div>
+        <div class="glass-profile-options">
+          <label><input type="radio" name="glassProfileMode" value="standard" checked /> <span id="glassProfileStandard">Standart 100x100x2</span></label>
+          <label><input type="radio" name="glassProfileMode" value="40x130x2" /> <span id="glassProfile40130">40x130x2</span></label>
+          <label><input type="radio" name="glassProfileMode" value="other" /> <span id="glassProfileOther">Diğer</span></label>
+        </div>
+        <div id="glassProfileCustomFields" class="glass-profile-custom-fields" hidden>
+          <label><span>En</span><input id="glassProfileEn" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <label><span>Boy</span><input id="glassProfileBoy" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <label><span>Et</span><input id="glassProfileEt" type="text" inputmode="numeric" autocomplete="off" /></label>
+        </div>
+        <div id="glassTrackEditorNote" class="post-editor-note"></div>
+        <div id="glassTrackEditorError" class="dim-edit-error" aria-live="polite"></div>
+        <div class="dim-edit-actions">
+          <button id="glassTrackEditorCancel" type="button" class="dim-edit-cancel">İptal</button>
+          <button id="glassTrackEditorApply" type="submit" class="dim-edit-apply">Tamam</button>
+        </div>
+      </form>`;
+    previewPanel.appendChild(overlay);
+
+    const customWrap = overlay.querySelector('#glassProfileCustomFields');
+    const refresh = () => {
+      const mode = (overlay.querySelector('input[name="glassProfileMode"]:checked') || {}).value || 'standard';
+      customWrap.hidden = mode !== 'other';
+    };
+    overlay.querySelectorAll('input[name="glassProfileMode"]').forEach(r => r.addEventListener('change', refresh));
+    overlay.querySelectorAll('#glassProfileEn,#glassProfileBoy,#glassProfileEt').forEach(input => {
+      input.addEventListener('input', () => {
+        const clean = String(input.value || '').replace(/[^0-9]/g, '');
+        if (input.value !== clean) input.value = clean;
+        overlay.querySelector('#glassTrackEditorError').textContent = '';
+      });
+    });
+    const close = () => { overlay.hidden = true; focusPreviewCanvas(); };
+    overlay.querySelector('#glassTrackEditorCancel').addEventListener('click', close);
+    overlay.addEventListener('click', evt => { if (evt.target === overlay) close(); });
+    overlay.addEventListener('keydown', evt => { if (evt.key === 'Escape') { evt.preventDefault(); close(); } });
+    overlay.querySelector('#glassTrackEditorForm').addEventListener('submit', evt => {
+      evt.preventDefault();
+      const mode = (overlay.querySelector('input[name="glassProfileMode"]:checked') || {}).value || 'standard';
+      let next = { mode, en: 100, boy: 100, et: 2 };
+      if (mode === '40x130x2') next = { mode, en: 40, boy: 130, et: 2 };
+      if (mode === 'other') {
+        next = {
+          mode,
+          en: Number(overlay.querySelector('#glassProfileEn').value || 0),
+          boy: Number(overlay.querySelector('#glassProfileBoy').value || 0),
+          et: Number(overlay.querySelector('#glassProfileEt').value || 0)
+        };
+      }
+      next = sanitizeGlassTrackProfile(next);
+      const err = overlay.querySelector('#glassTrackEditorError');
+      if (!Number.isFinite(next.en) || !Number.isFinite(next.boy) || next.en <= 0 || next.boy <= 0) {
+        err.textContent = currentLanguage === 'en' ? 'Enter positive profile dimensions.' : 'Profil ölçüleri pozitif olmalı.';
+        return;
+      }
+      const modeType = overlay.dataset.profilePart || 'track';
+      const scope = overlay.dataset.profileScope || '';
+      if (modeType === 'support') {
+        if (scope === 'left' || scope === 'right') glassSupportProfileState[scope] = next;
+      } else {
+        glassTrackProfileState = next;
+        glassSupportProfileState = { left: null, right: null };
+      }
+      overlay.hidden = true;
+      updatePreview(false);
+      statusText.textContent = currentLanguage === 'en'
+        ? (modeType === 'support'
+            ? `${supportProfileScopeLabel(scope, true)} profile set to ${Math.round(next.en)}x${Math.round(next.boy)}x${Math.round(next.et)}.`
+            : `Glass profile set to ${Math.round(next.en)}x${Math.round(next.boy)}x${Math.round(next.et)}.`)
+        : (modeType === 'support'
+            ? `${supportProfileScopeLabel(scope, false)} profili ${Math.round(next.en)}x${Math.round(next.boy)}x${Math.round(next.et)} olarak ayarlandı.`
+            : `Cam kaydı profili ${Math.round(next.en)}x${Math.round(next.boy)}x${Math.round(next.et)} olarak ayarlandı.`);
+    });
+    return overlay;
+  }
+
+  function showGlassTrackEditorOverlay(meta) {
+    const overlay = ensureGlassTrackEditorOverlay();
+    const isEn = currentLanguage === 'en';
+    const isSupport = (meta.profilePart || '') === 'support';
+    const scope = meta.profileScope || '';
+    const current = sanitizeGlassTrackProfile(
+      isSupport
+        ? ((scope === 'left' || scope === 'right') ? (glassSupportProfileState[scope] || glassTrackProfileState) : glassTrackProfileState)
+        : glassTrackProfileState
+    );
+    overlay.dataset.profilePart = isSupport ? 'support' : 'track';
+    overlay.dataset.profileScope = scope;
+    overlay.querySelector('#glassTrackEditorTitle').textContent = isSupport
+      ? (isEn ? 'Edit Support Profile' : 'Destek Dikmesi Profili Düzenle')
+      : (isEn ? 'Edit Glass Track Profile' : 'Cam Kaydı Profili Düzenle');
+    overlay.querySelector('#glassProfileStandard').textContent = isEn ? 'Standard 100x100x2' : 'Standart 100x100x2';
+    overlay.querySelector('#glassProfile40130').textContent = '40x130x2';
+    overlay.querySelector('#glassProfileOther').textContent = isEn ? 'Other' : 'Diğer';
+    overlay.querySelector('#glassTrackEditorCancel').textContent = isEn ? 'Cancel' : 'İptal';
+    overlay.querySelector('#glassTrackEditorApply').textContent = isEn ? 'OK' : 'Tamam';
+    overlay.querySelector('#glassTrackEditorMeta').innerHTML = `
+      <b>${isEn ? 'Clicked area' : 'Tıklanan alan'}:</b> ${escapeHtml(isSupport ? supportProfileScopeLabel(scope, isEn) : (isEn ? 'glass track - whole system' : 'cam kaydı - tüm sistem'))}<br>
+      <b>${isEn ? 'Effect' : 'Etki'}:</b> ${escapeHtml(isSupport ? (isEn ? 'only this support and its top-view section' : 'sadece bu destek dikmesi ve üst görünüş kesiti') : (isEn ? 'all glass tracks + default support profiles' : 'tüm cam kayıtları + varsayılan destek profilleri'))}<br>
+      <b>${isEn ? 'Current' : 'Mevcut'}:</b> ${Math.round(current.en)}x${Math.round(current.boy)}x${Math.round(current.et)}`;
+    overlay.querySelector('#glassTrackEditorNote').textContent = isSupport
+      ? (isEn
+          ? 'Support edit changes the section only. The support length stays fixed; the main glass track profile is not affected.'
+          : 'Destek düzenleme yalnızca kesiti değiştirir. Destek dikmesi uzunluğu sabit kalır; ana cam kaydı profili etkilenmez.')
+      : (isEn
+          ? 'Glass-track edit applies to the whole drawing. Only the first left side-view glass track is used as the main edit handle.'
+          : 'Cam kaydı düzenleme tüm çizime uygulanır. Ana düzenleme noktası sadece 1. poz sol yan görünüş cam kaydıdır.');
+    overlay.querySelector('#glassTrackEditorError').textContent = '';
+    overlay.querySelectorAll('input[name="glassProfileMode"]').forEach(r => {
+      r.checked = r.value === current.mode || (current.mode === '40x130' && r.value === '40x130x2');
+    });
+    if (!overlay.querySelector('input[name="glassProfileMode"]:checked')) overlay.querySelector('input[name="glassProfileMode"][value="standard"]').checked = true;
+    overlay.querySelector('#glassProfileEn').value = String(Math.round(current.en));
+    overlay.querySelector('#glassProfileBoy').value = String(Math.round(current.boy));
+    overlay.querySelector('#glassProfileEt').value = String(Math.round(current.et));
+    const customWrap = overlay.querySelector('#glassProfileCustomFields');
+    customWrap.hidden = (overlay.querySelector('input[name="glassProfileMode"]:checked') || {}).value !== 'other';
+    overlay.hidden = false;
+  }
+
+  function ensurePostEditorOverlay() {
+    let overlay = $('postEditorOverlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'postEditorOverlay';
+    overlay.className = 'dim-edit-overlay post-editor-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <form id="postEditorForm" class="dim-edit-card">
+        <div class="dim-edit-title" id="postEditorTitle">Ön Dikme Düzenle</div>
+        <div class="dim-edit-meta" id="postEditorMeta"></div>
+        <div class="post-editor-grid">
+          <label><span id="postEditorCountLabel">Dikme adedi</span><input id="postEditorCountInput" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <div>
+            <div class="dim-edit-label"><span id="postPlacementLegend">Dikme yerleşim mantığı</span></div>
+            <div class="post-placement-options">
+              <label><input type="radio" name="postPlacementMode" value="standard" checked /> <span id="postPlacementStandard">Standart bölme</span></label>
+              <label><input type="radio" name="postPlacementMode" value="equal" /> <span id="postPlacementEqual">Eşit bölme</span></label>
+            </div>
+          </div>
+          <div id="postEditorNote" class="post-editor-note"></div>
+        </div>
+        <div class="dim-edit-actions">
+          <button id="postEditorCancel" type="button" class="dim-edit-cancel">İptal</button>
+          <button id="postEditorApply" type="submit" class="dim-edit-apply">Tamam</button>
+        </div>
+      </form>`;
+    previewPanel.appendChild(overlay);
+    overlay.querySelector('#postEditorCancel').addEventListener('click', () => { overlay.hidden = true; });
+    overlay.addEventListener('click', evt => { if (evt.target === overlay) overlay.hidden = true; });
+    overlay.addEventListener('keydown', evt => { if (evt.key === 'Escape') { evt.preventDefault(); overlay.hidden = true; } });
+    overlay.querySelector('#postEditorForm').addEventListener('submit', evt => {
+      evt.preventDefault();
+      const countInput = overlay.querySelector('#postEditorCountInput');
+      const nextCount = Math.max(0, Number(String(countInput.value || '').replace(/[^0-9]/g, '')) || 0);
+      const mode = (overlay.querySelector('input[name="postPlacementMode"]:checked') || {}).value || 'standard';
+      const postEl = $('postCount');
+      if (postEl) {
+        postEl.value = String(nextCount);
+        postEl.dataset.userEdited = 'true';
+      }
+      manualPostPlacementMode = mode === 'equal' ? 'equal' : 'standard';
+      overlay.hidden = true;
+      updatePreview(false);
+      statusText.textContent = currentLanguage === 'en'
+        ? `Front post count set to ${nextCount}. Placement mode: ${manualPostPlacementMode === 'equal' ? 'equal division' : 'standard division'}.`
+        : `Ön dikme adedi ${nextCount} olarak ayarlandı. Yerleşim modu: ${manualPostPlacementMode === 'equal' ? 'eşit bölme' : 'standart bölme'}.`;
+    });
+    return overlay;
+  }
+
+  function showPostEditorOverlay(meta) {
+    const overlay = ensurePostEditorOverlay();
+    const isEn = currentLanguage === 'en';
+    overlay.querySelector('#postEditorTitle').textContent = isEn ? 'Edit Front Posts' : 'Ön Dikme Düzenle';
+    overlay.querySelector('#postEditorCountLabel').textContent = isEn ? 'Post count' : 'Dikme adedi';
+    overlay.querySelector('#postPlacementLegend').textContent = isEn ? 'Post placement logic' : 'Dikme yerleşim mantığı';
+    overlay.querySelector('#postPlacementStandard').textContent = isEn ? 'Standard division' : 'Standart bölme';
+    overlay.querySelector('#postPlacementEqual').textContent = isEn ? 'Equal division' : 'Eşit bölme';
+    overlay.querySelector('#postEditorCancel').textContent = isEn ? 'Cancel' : 'İptal';
+    overlay.querySelector('#postEditorApply').textContent = isEn ? 'OK' : 'Tamam';
+    overlay.querySelector('#postEditorMeta').innerHTML = `
+      <b>${isEn ? 'Clicked front post' : 'Tıklanan ön dikme'}:</b> ${meta.postIndex + 1} / ${Math.max(meta.currentPostCount || 0, meta.postIndex + 1)}<br>
+      <b>${isEn ? 'Current post count' : 'Mevcut dikme adedi'}:</b> ${meta.currentPostCount}<br>
+      <b>${isEn ? 'Ray axis count' : 'Ray aks adedi'}:</b> ${meta.totalRayCount}`;
+    overlay.querySelector('#postEditorCountInput').value = String(meta.currentPostCount || ($('postCount') ? $('postCount').value : '') || '');
+    overlay.querySelectorAll('input[name="postPlacementMode"]').forEach(r => { r.checked = r.value === manualPostPlacementMode; });
+    overlay.querySelector('#postEditorNote').textContent = isEn
+      ? 'Standard division keeps the existing axis-based logic when post count and ray axis count match. Equal division always distributes posts equally.'
+      : 'Standart bölme, dikme sayısı ile ray aks sayısı eşitse mevcut aks mantığını korur. Eşit bölme seçilirse dikmeler her durumda eşit aralıkla dağıtılır.';
+    overlay.hidden = false;
+    const input = overlay.querySelector('#postEditorCountInput');
+    window.setTimeout(() => { input.focus({ preventScroll: true }); input.select(); }, 20);
+  }
+
+  function handlePreviewDimensionEdit(evt) {
+    const dimHit = evt.target && evt.target.closest ? evt.target.closest('[data-dim-id],[data-edit-field]') : null;
+    const postHit = !dimHit && evt.target && evt.target.closest ? evt.target.closest('[data-interaction-type="postEditor"],[data-interaction-type="glassTrackEditor"]') : null;
+    if (!dimHit && !postHit) return;
+    evt.preventDefault();
+    evt.stopPropagation();
+    if (previewState.dragMoved) {
+      previewState.dragMoved = false;
+      return;
+    }
+    if (postHit) {
+      const interactionMeta = previewInteractionMetaFromHit(postHit);
+      if (interactionMeta.interactionType === 'glassTrackEditor') showGlassTrackEditorOverlay(interactionMeta);
+      else showPostEditorOverlay(interactionMeta);
+      return;
+    }
+    const meta = dimensionMetaFromHit(dimHit);
+    restoreActiveDimensionPanelParts();
+    if (!meta.editable) {
+      showPassiveDimensionInfo(meta);
+      return;
+    }
+    showDimensionEditOverlay(meta);
+  }
+
+  function bindPreviewKeyboardGuard() {
+    document.addEventListener('keydown', evt => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      const expanded = document.fullscreenElement === previewPanel || (previewPanel && previewPanel.classList.contains('is-expanded'));
+      if (!expanded) return;
+      const active = document.activeElement;
+      if (active && active.id === 'expandPreviewBtn') {
+        evt.preventDefault();
+        evt.stopPropagation();
+        focusPreviewCanvas();
+      }
+    }, true);
+  }
+
   function bindPreviewInteractions() {
+    preview.addEventListener('click', handlePreviewDimensionEdit);
+
     preview.addEventListener('wheel', evt => {
       if (!getPreviewSvg()) return;
       evt.preventDefault();
@@ -465,11 +1220,13 @@
     }, { passive: false });
 
     preview.addEventListener('pointerdown', evt => {
+      if (evt.target && evt.target.closest && evt.target.closest('[data-dim-id],[data-edit-field],[data-interaction-type]')) return;
       if (evt.button !== 0 || !getPreviewSvg()) return;
       previewState.dragActive = true;
       previewState.pointerId = evt.pointerId;
       previewState.dragStartX = evt.clientX;
       previewState.dragStartY = evt.clientY;
+      previewState.dragMoved = false;
       previewState.dragScrollLeft = preview.scrollLeft;
       previewState.dragScrollTop = preview.scrollTop;
       preview.classList.add('is-dragging');
@@ -481,8 +1238,11 @@
 
     preview.addEventListener('pointermove', evt => {
       if (!previewState.dragActive) return;
-      preview.scrollLeft = previewState.dragScrollLeft - (evt.clientX - previewState.dragStartX);
-      preview.scrollTop = previewState.dragScrollTop - (evt.clientY - previewState.dragStartY);
+      const dx = evt.clientX - previewState.dragStartX;
+      const dy = evt.clientY - previewState.dragStartY;
+      if (Math.abs(dx) + Math.abs(dy) > 6) previewState.dragMoved = true;
+      preview.scrollLeft = previewState.dragScrollLeft - dx;
+      preview.scrollTop = previewState.dragScrollTop - dy;
     });
 
     const stopDrag = evt => {
@@ -528,13 +1288,23 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_56-v${drawing.input.version}`);
+    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_77-v${drawing.input.version}`);
+  }
+
+  function currentDxfDimensionHiddenLayers() {
+    const mainOn = isPreviewToggleOn($('showMainDims'));
+    const allOn = mainOn && isPreviewToggleOn($('showAllDims'));
+    return {
+      'Ölçüler - Ana': !mainOn,
+      'Ölçüler - Detay': !allOn
+    };
   }
 
   function generateDxf() {
     try {
       const drawing = updatePreview();
       if (!drawing) return;
+      drawing.hiddenLayers = currentDxfDimensionHiddenLayers();
       if (!window.PulumurDXF || typeof window.PulumurDXF.toDxf !== 'function') {
         throw new Error('DXF motoru yüklenemedi. GitHub’a dxfEngine.js ve blocks klasörünü yüklediğinden emin ol.');
       }
@@ -717,6 +1487,15 @@ ${err.message}`);
     btn.textContent = expanded ? txt.shrinkPreviewBtn : txt.expandPreviewBtn;
   }
 
+  function focusPreviewCanvas() {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    if (preview && typeof preview.focus === 'function') {
+      window.setTimeout(() => preview.focus({ preventScroll: true }), 30);
+    }
+  }
+
   async function togglePreviewFullscreen() {
     if (!previewPanel) return;
     try {
@@ -727,7 +1506,10 @@ ${err.message}`);
     } catch (err) {
       previewPanel.classList.toggle('is-expanded');
     }
-    window.setTimeout(() => applyPreviewScale(), 60);
+    window.setTimeout(() => {
+      applyPreviewScale();
+      focusPreviewCanvas();
+    }, 60);
     syncExpandButton();
   }
 
@@ -1101,8 +1883,12 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
     ids.forEach(id => {
       const el = $(id);
       if (!el) return;
-      el.addEventListener('change', updatePreview);
+      el.addEventListener('change', () => {
+        if (suppressFormPreviewUpdate) return;
+        updatePreview();
+      });
       el.addEventListener('input', () => {
+        if (suppressFormPreviewUpdate) return;
         if (wrappingFields) return;
         autosizeTextarea(el);
         if (id === 'rayCount' || id === 'postCount') {
@@ -1112,6 +1898,10 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
             const br = window.PulumurExcelBridge;
             if (br && br.postCountFromRayText) $('postCount').value = br.postCountFromRayText(el.value, raw.systemCount, raw.width, raw.frontHeight);
           }
+        }
+        if (id === 'width') {
+          if ($('rayCount')) $('rayCount').dataset.userEdited = 'false';
+          if ($('postCount')) $('postCount').dataset.userEdited = 'false';
         }
         if (['systemCount', 'width', 'frontHeight', 'glassTrack'].includes(id)) {
           applyAutoRayPost(false);
@@ -1124,6 +1914,8 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
 
   document.addEventListener('fullscreenchange', () => { window.setTimeout(() => applyPreviewScale(), 60); syncExpandButton(); });
   bindPreviewInteractions();
+  bindPreviewKeyboardGuard();
+  bindPreviewFilterControls();
   enhanceExcelCombos();
   bindStrictInputs();
   renderQuickTests();

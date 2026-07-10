@@ -7,8 +7,14 @@
     PROFILE: { stroke: '#ff0000', width: 1.25, aci: 1 },
     FABRIC: { stroke: '#ffbf00', width: 0.9, dash: '14 10', aci: 42 },
     RAY: { stroke: '#0000ff', width: 1.15, aci: 5 },
+    'Ray - Yan Görünüş': { stroke: '#0000ff', width: 1.15, aci: 5 },
+    'Ray - Üst Görünüş': { stroke: '#0000ff', width: 1.15, aci: 5 },
+    'Ray - Ön Görünüş': { stroke: '#0000ff', width: 1.15, aci: 5 },
     POST: { stroke: '#ff00ff', width: 1.15, aci: 6 },
+    'Dikme - Yan Görünüş': { stroke: '#ff00ff', width: 1.15, aci: 6 },
     WALL: { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
+    'Duvar - Yan Görünüş': { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
+    'Blok - Yan Görünüş': { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 },
     TOPWALL: { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
     HATCH_WALL: { stroke: '#808080', width: 0.45, aci: 8 },
     HATCH_FABRIC: { stroke: '#ffbf00', width: 0.45, aci: 42 },
@@ -19,7 +25,30 @@
     TEXT: { stroke: '#000000', width: 0.6, aci: 7 },
     TABLE: { stroke: '#000000', width: 0.7, aci: 7 },
     TITLE: { stroke: '#000000', width: 0.7, aci: 7 },
-    BLOCKREF: { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 }
+    BLOCKREF: { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 },
+
+    // V8.2.66: Akıllı ölçü/zone ve görünüş bazlı DXF layer altyapısı
+    'Dikme - Üst Görünüş': { stroke: '#ff00ff', width: 1.15, aci: 6 },
+    'Dikme - Ön Görünüş': { stroke: '#ff00ff', width: 1.15, aci: 6 },
+    'Oluk - Yan Görünüş': { stroke: '#000000', width: 1.2, aci: 7 },
+    'Oluk - Üst Görünüş': { stroke: '#000000', width: 1.2, aci: 7 },
+    'Oluk - Ön Görünüş': { stroke: '#000000', width: 1.2, aci: 7 },
+    'Duvar - Üst Görünüş': { stroke: '#808080', width: 0.65, dash: '18 12', aci: 8 },
+    'Ölçüler - Yan Görünüş': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Ölçüler - Üst Görünüş': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Ölçüler - Ön Görünüş': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Ölçüler - Sağ Görünüş': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Ölçüler - Ana': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Ölçüler - Detay': { stroke: '#ffbf00', width: 0.75, aci: 42 },
+    'Bloklar - Sabit': { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 },
+    'Bloklar - Ray Uçları': { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 },
+    'Ürün Yerleşimi - Sürme': { stroke: '#00a0c8', width: 1.05, aci: 4 },
+    'Ürün Yerleşimi - Zipper': { stroke: '#00bf00', width: 1.05, aci: 130 },
+    'Ürün Yerleşimi - Giyotin': { stroke: '#9a4cff', width: 1.05, aci: 200 },
+    'Profil - Yan Kayıt - Yan Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
+    'Profil - Yan Kayıt - Üst Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
+    'Profil - Yan Kayıt - Ön Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
+    'Zone - Önizleme Kontrol': { stroke: '#b00000', width: 0.65, dash: '8 8', aci: 1 }
   };
   // PERI01 LISP'ten web tabanına taşınan ana sabitler.
   const K = {
@@ -69,7 +98,76 @@
     sideViewGapY: 800
   };
 
-  const BUILD_LABEL = 'WEB DXF V8.2.47 - INPUT FILTER LANGUAGE HELP - 09.07.2026';
+  // V8.2.66: Ölçü -> Zone -> Profil / Ürün -> Görünüşler arası ilişki -> DXF layer altyapısı.
+  const DIMENSION_ACTIONS = {
+    main_resize: { canResize: true, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: false, canRemoveElement: false },
+    gap_between_posts: { canResize: false, canAddSameProfile: true, canAddDifferentProfile: true, canPlaceProduct: true, canRemoveElement: false },
+    wall_to_post_gap: { canResize: false, canAddSameProfile: false, canAddDifferentProfile: true, canPlaceProduct: true, canRemoveElement: false },
+    system_width: { canResize: true, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: true, canRemoveElement: false },
+    fixed_block_size: { canResize: false, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: false, canRemoveElement: false, passiveReason: 'Bu blok sabit parçadır. Ölçüsü değiştirilemez.' },
+    info_only: { canResize: false, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: false, canRemoveElement: false, passiveReason: 'Bu ölçü şu an sadece bilgi amaçlıdır.' }
+  };
+
+  const DIMENSION_EDIT_RULES = {
+    side_opening: { editable: true, actionType: 'main_resize', dimensionType: 'main' },
+    side_rear_height: { editable: true, actionType: 'main_resize', dimensionType: 'height' },
+    side_front_height: { editable: true, actionType: 'main_resize', dimensionType: 'height' },
+    top_opening: { editable: true, actionType: 'main_resize', dimensionType: 'main' },
+    top_total_width: { editable: true, actionType: 'system_width', dimensionType: 'main' },
+    top_system_width: { editable: true, actionType: 'system_width', dimensionType: 'main' },
+    front_total_width: { editable: true, actionType: 'system_width', dimensionType: 'main' },
+    front_front_height: { editable: true, actionType: 'main_resize', dimensionType: 'height' },
+    front_post_gap: { editable: true, actionType: 'gap_between_posts', dimensionType: 'detail' },
+    side_wall_to_post_gap: { editable: true, actionType: 'wall_to_post_gap', dimensionType: 'detail' },
+    parapet_height_info: { editable: false, actionType: 'info_only', dimensionType: 'info', passiveReason: 'Parapet ölçüsü bu aşamada form alanından yönetilir.' },
+    fixed_block_size: { editable: false, actionType: 'fixed_block_size', dimensionType: 'info', passiveReason: 'Bu blok sabit parçadır. Ölçüsü değiştirilemez. Sistem ölçüsü değiştiğinde konumu otomatik güncellenir.' },
+    triangle_info: { editable: false, actionType: 'info_only', dimensionType: 'info' }
+  };
+
+  const PROFILE_LIBRARY = {
+    side_register_100: { id: 'side_register_100', name: 'Yan Kayıt Profili 100', sectionA: 100, sectionB: 100, category: 'side_register', material: 'aluminum', viewRepresentation: { side: { visibleWidth: 100 }, top: { visibleWidth: 100 }, front: { visibleWidth: 100 }, right: { visibleWidth: 100 } } },
+    side_register_40x130: { id: 'side_register_40x130', name: 'Yan Kayıt Profili 40x130', sectionA: 40, sectionB: 130, category: 'side_register', material: 'aluminum', viewRepresentation: { side: { visibleWidth: 40, visibleDepth: null }, top: { visibleWidth: 130, visibleDepth: 40 }, front: { visibleWidth: 40, visibleDepth: null }, right: { visibleWidth: 40, visibleDepth: 130 } } },
+    post_100x100: { id: 'post_100x100', name: 'Dikme Profili 100x100', sectionA: 100, sectionB: 100, category: 'post', material: 'aluminum', viewRepresentation: { side: { visibleWidth: 100 }, top: { visibleWidth: 100 }, front: { visibleWidth: 100 }, right: { visibleWidth: 100 } } }
+  };
+
+  const PRODUCT_LIBRARY = {
+    sliding_glass: { id: 'sliding_glass', name: 'Sürme Cam', layer: 'Ürün Yerleşimi - Sürme' },
+    guillotine_glass: { id: 'guillotine_glass', name: 'Giyotin / Yürüyen Sistem', layer: 'Ürün Yerleşimi - Giyotin' },
+    zipper: { id: 'zipper', name: 'Zipper Perde', layer: 'Ürün Yerleşimi - Zipper' },
+    fixed_glass: { id: 'fixed_glass', name: 'Sabit Cam', layer: 'GLASS' },
+    door: { id: 'door', name: 'Kapı', layer: 'GLASS' },
+    empty: { id: 'empty', name: 'Boş Alan', layer: 'Zone - Önizleme Kontrol' }
+  };
+
+  function dimSlug(value) {
+    return String(value || '').toLowerCase().replace(/[ğ]/g, 'g').replace(/[ü]/g, 'u').replace(/[ş]/g, 's').replace(/[ı]/g, 'i').replace(/[ö]/g, 'o').replace(/[ç]/g, 'c').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'dim';
+  }
+
+  function enrichDimensionEdit(edit, measured) {
+    const src = edit || {};
+    const ruleKey = src.ruleKey || src.dimId || `${src.view || 'dim'}_${src.field || 'value'}`;
+    const rule = DIMENSION_EDIT_RULES[ruleKey] || {};
+    const action = DIMENSION_ACTIONS[rule.actionType || src.actionType || 'main_resize'] || DIMENSION_ACTIONS.main_resize;
+    const dimId = src.dimId || `${dimSlug(src.view || 'view')}_${dimSlug(src.label || src.field || 'value')}_${src.index || 0}`;
+    const editable = src.editable !== undefined ? !!src.editable : (rule.editable !== undefined ? !!rule.editable : !!action.canResize);
+    return {
+      ...src,
+      dimId,
+      ruleKey,
+      editable,
+      actionType: rule.actionType || src.actionType || 'main_resize',
+      dimensionType: src.dimensionType || rule.dimensionType || 'main',
+      passiveReason: src.passiveReason || rule.passiveReason || action.passiveReason || null,
+      measuredValue: Math.round(Math.abs(Number(measured) || 0)),
+      canResize: src.canResize !== undefined ? !!src.canResize : !!action.canResize,
+      canAddSameProfile: src.canAddSameProfile !== undefined ? !!src.canAddSameProfile : !!action.canAddSameProfile,
+      canAddDifferentProfile: src.canAddDifferentProfile !== undefined ? !!src.canAddDifferentProfile : !!action.canAddDifferentProfile,
+      canPlaceProduct: src.canPlaceProduct !== undefined ? !!src.canPlaceProduct : !!action.canPlaceProduct,
+      canRemoveElement: src.canRemoveElement !== undefined ? !!src.canRemoveElement : !!action.canRemoveElement
+    };
+  }
+
+  const BUILD_LABEL = 'WEB DXF V8.2.71 - FILTER ONLY / POST EDITOR RADIO ALIGN - 10.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -255,6 +353,7 @@
     // Burada ilk değere indirgemiyoruz; buildSystems tüm listeyi okuyacak.
     d.rayCountText = String(d.rayCount ?? '').trim();
     d.postCount = Math.max(0, intValue(d.postCount, SAMPLE_INPUT.postCount));
+    d.manualPostPlacementMode = String((raw && raw.__manualPostPlacementMode) || 'standard').trim().toLowerCase() === 'equal' ? 'equal' : 'standard';
     d.parapetHeight = yes(d.parapet) ? Math.max(0, numberValue(d.parapetHeight, 0)) : 0;
     d.customer = textValue(d.customer, '-');
     d.project = textValue(d.project, '-');
@@ -270,6 +369,11 @@
     d.dimmer = textValue(d.dimmer);
     d.extras = textValue(d.extras);
     d.sideTrack = textValue(d.sideTrack, 'HAYIR');
+    d.glassTrackProfile = normalizeGlassTrackProfile(raw && raw.__glassTrackProfile);
+    d.glassTrackSupportProfiles = {
+      left: normalizeGlassTrackProfile(raw && raw.__glassTrackSupportProfiles && raw.__glassTrackSupportProfiles.left ? raw.__glassTrackSupportProfiles.left : d.glassTrackProfile),
+      right: normalizeGlassTrackProfile(raw && raw.__glassTrackSupportProfiles && raw.__glassTrackSupportProfiles.right ? raw.__glassTrackSupportProfiles.right : d.glassTrackProfile)
+    };
 
     const sys = buildSystems(d, d);
     d.systems = sys.systems;
@@ -298,8 +402,14 @@
     d.maxOpening = Math.max(...d.positions.map(p => p.opening));
     d.lastOpening = d.positions[d.positions.length - 1].opening;
     d.maxRearHeight = Math.max(...d.positions.map(p => p.rearHeight));
-    d.frontRayTopRefY = -d.opening - K.frontViewExtraDrop;
+    // Çoklu ve farklı açılımlı sistemlerde üst görünüşün en alt kotu, en büyük açılıma göre oluşur.
+    // Ön görünüş bu yüzden maxOpening referansına göre aşağı alınır. Aynı global kayma,
+    // yan görünüş grubuna da uygulanır ki ön/yan görünüşler aynı yatay referans sisteminde kalsın.
+    d.frontRayTopRefY = -d.maxOpening - K.frontViewExtraDrop;
     d.commonFrontRectStartY = d.frontRayTopRefY - d.maxRearHeight + d.frontHeight;
+    // Yan görünüş Poz 1 birleşik oluk bloğu taban/base referansı, ön görünüş oluk profilinin -Y ucu ile aynı kotta olmalı.
+    // Bu değer, Poz 1 yan görünüş rectStartY değerini doğrudan commonFrontRectStartY kotuna kilitler.
+    d.sideGlobalShiftY = d.commonFrontRectStartY - (-(d.opening + (d.rearHeight - d.frontHeight) + K.frontViewExtraDrop));
     d.rectStartY = d.commonFrontRectStartY;
     d.solX = K.gutterX + K.postSize;
     d.sagX = K.gutterX + d.width;
@@ -346,7 +456,7 @@
   }
 
   function dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, textRot = 0, options = {}) {
-    const layer = 'DIM';
+    const layer = options.layer || 'DIM';
     const dx = q2x - q1x, dy = q2y - q1y;
     const ang = Math.atan2(dy, dx);
     const scale = Number(options.scale || 1) > 0 ? Number(options.scale || 1) : 1;
@@ -358,14 +468,14 @@
       { type: 'line', layer, x1: q1x, y1: q1y, x2: q2x, y2: q2y, color: 42 },
       dimArrowPoly(q1x, q1y, ang, arrowSize, layer),
       dimArrowPoly(q2x, q2y, ang + Math.PI, arrowSize, layer),
-      { type: 'text', layer: 'TEXT', x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: 1 }
+      { type: 'text', layer: options.textLayer || layer, x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: 1 }
     ];
   }
 
   function addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, measured, rotationDeg = 0, options = {}) {
     if (K.showDimensions === false) return;
     const textValue = dimMeasuredText(measured);
-    g.dimension({
+    const ent = {
       dimKind: 'aligned',
       p1: { x: x1, y: y1 },
       p2: { x: x2, y: y2 },
@@ -374,7 +484,10 @@
       textOverride: '<>',
       measuredValue: Math.abs(Number(measured) || 0),
       graphics: dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, rotationDeg, options)
-    });
+    };
+    if (options && options.edit) ent.edit = enrichDimensionEdit(options.edit, measured);
+    if (options && options.layer) ent.layer = options.layer;
+    g.dimension(ent);
   }
 
   function addDimH(g, x1, x2, yRef, yDim, label, options = {}) {
@@ -393,7 +506,7 @@
     addDimAlignedEntity(g, xRef, y1, xRef, y2, xDim, y1, xDim, y2, textX, textY, measured, 90, options);
   }
 
-  function addDimAligned(g, x1, y1, x2, y2, xLoc, yLoc, label) {
+  function addDimAligned(g, x1, y1, x2, y2, xLoc, yLoc, label, options = {}) {
     if (K.showDimensions === false) return;
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
@@ -404,7 +517,7 @@
     const q2x = x2 + nx * off, q2y = y2 + ny * off;
     const textX = (q1x + q2x) / 2 + nx * 120;
     const textY = (q1y + q2y) / 2 + ny * 120;
-    addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, len, Math.atan2(dy, dx) * 180 / Math.PI);
+    addDimAlignedEntity(g, x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, len, Math.atan2(dy, dx) * 180 / Math.PI, options);
   }
   function rotatePoint(px, py, bx, by, ang) { const dx = px - bx, dy = py - by, ca = Math.cos(ang), sa = Math.sin(ang); return [bx + dx * ca - dy * sa, by + dx * sa + dy * ca]; }
   function getBlocks() { return (root.PulumurFilteredBlocks && root.PulumurFilteredBlocks.blocks) ? root.PulumurFilteredBlocks.blocks : {}; }
@@ -451,6 +564,13 @@
       };
     }
     if (e.type === 'insert') return { ...e, x: mx(e.x), rotation: normDeg(-(Number(e.rotation) || 0)), scaleX: Math.abs(Number(e.scaleX) || 1), mirrorX: !e.mirrorX };
+    if (e.type === 'interaction') {
+      const x1 = Number(e.x) || 0;
+      const x2 = x1 + (Number(e.w) || 0);
+      const nx1 = mx(Math.max(x1, x2));
+      const nx2 = mx(Math.min(x1, x2));
+      return { ...e, x: Math.min(nx1, nx2), w: Math.abs(nx2 - nx1) };
+    }
     return { ...e };
   }
 
@@ -522,6 +642,46 @@
   function rotatedRect(g, x, y, w, h, bx, by, ang, layer) { const pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(p => rotatePoint(p[0], p[1], bx, by, ang)); g.poly(pts, true, layer); return pts; }
   function blockRef(g, name, x, y, w, h, layer = 'BLOCKREF', rotation = 0, scaleX = 1, scaleY = 1) { return g.insert(name, x, y, { layer, rotation, scaleX, scaleY, previewW: w, previewH: h }); }
 
+  function normalizeGlassTrackProfile(src) {
+    const raw = src || {};
+    let mode = String(raw.mode || raw.id || 'standard').trim().toLowerCase();
+    let en = Number(raw.en ?? raw.side ?? raw.width ?? 100);
+    let boy = Number(raw.boy ?? raw.top ?? raw.depth ?? 100);
+    let et = Number(raw.et ?? raw.thickness ?? 2);
+    if (mode === '40x130' || mode === '40x130x2' || mode === 'side_register_40x130') { en = 40; boy = 130; et = 2; mode = '40x130x2'; }
+    else if (mode !== 'other') { en = 100; boy = 100; et = 2; mode = 'standard'; }
+    en = Math.max(5, Number.isFinite(en) ? en : 100);
+    boy = Math.max(5, Number.isFinite(boy) ? boy : 100);
+    et = Math.max(0, Number.isFinite(et) ? et : 2);
+    const maxEt = Math.max(0, Math.min(en, boy) / 2 - 0.1);
+    et = Math.min(et, maxEt);
+    return { mode, en, boy, et };
+  }
+
+  function drawHollowRect(g, x, y, w, h, layer, et = 0) {
+    g.rect(x, y, w, h, layer);
+    const t = Math.max(0, Number(et) || 0);
+    const left = Math.min(x, x + w), right = Math.max(x, x + w);
+    const bottom = Math.min(y, y + h), top = Math.max(y, y + h);
+    const iw = right - left - 2 * t;
+    const ih = top - bottom - 2 * t;
+    if (iw > 0.5 && ih > 0.5) g.rect(left + t, top - t, iw, -ih, layer);
+  }
+
+  function addGlassTrackInteraction(g, x, y, w, h, profile, part = 'track', scope = 'global') {
+    g.entities.push({
+      type: 'interaction',
+      kind: 'glassTrackEditor',
+      x, y, w, h,
+      data: { part, scope, profileMode: profile.mode, en: profile.en, boy: profile.boy, et: profile.et }
+    });
+  }
+
+  function supportProfileFor(d, scope = 'left') {
+    if (d && d.glassTrackSupportProfiles && d.glassTrackSupportProfiles[scope]) return d.glassTrackSupportProfiles[scope];
+    return d && d.glassTrackProfile ? d.glassTrackProfile : normalizeGlassTrackProfile();
+  }
+
   function rayXs(d) { return d.systems.flatMap(s => s.rays); }
   function raySystemInfos(d) { return d.systems.map(s => ({ ...s })); }
   function rayIntervals(d) { const out = []; d.systems.forEach(sys => { for (let i = 0; i < sys.rays.length - 1; i += 1) { const x1 = sys.rays[i]; const x2 = sys.rays[i + 1]; out.push({ system: sys.index, x: x1 + K.rayW, len: x2 - (x1 + K.rayW) }); } }); return out; }
@@ -563,6 +723,9 @@
   function postCenterXs(d) {
     if (d.postCount <= 0) return [];
     if (d.postCount === 1) return [K.systemStartX + d.width / 2];
+    if (d.manualPostPlacementMode === 'equal') {
+      return Array.from({ length: d.postCount }, (_, i) => d.solX + ((d.sagX - d.solX) / Math.max(1, d.postCount - 1)) * i);
+    }
     const out = [];
     const ax = dikmeAraAxes(d);
     for (let i = 0; i < d.postCount; i += 1) {
@@ -643,8 +806,8 @@
       const rayEndY = -(d.opening + K.topRayEndExtra);
       const rayStartY = rayEndY + (p.opening - K.rayLengthFrontDeduct);
       sys.rays.forEach(x => {
-        g.rect(x, rayStartY, K.rayW, -(p.opening - K.rayLengthFrontDeduct), 'RAY');
-        g.rect(x + 33.5, rayStartY, 13, -(p.opening - K.rayLengthFrontDeduct), 'RAY');
+        g.rect(x, rayStartY, K.rayW, -(p.opening - K.rayLengthFrontDeduct), 'Ray - Üst Görünüş');
+        g.rect(x + 33.5, rayStartY, 13, -(p.opening - K.rayLengthFrontDeduct), 'Ray - Üst Görünüş');
         blockRef(g, 'PergoRise Ray Arka Mekanizma Üst Görünüş', x + 40, rayStartY, 95, 72);
         blockRef(g, 'PergoRise Ray Kafası Üst Görünüş', x + 40, rayEndY, 100, 80);
       });
@@ -656,26 +819,45 @@
 
   function drawTopGlassTrack(g, d) {
     if (!yes(d.glassTrack)) return;
+    const profile = d.glassTrackProfile || normalizeGlassTrackProfile();
+    const sideH = profile.en;
+    const topW = profile.boy;
+    const et = profile.et;
+    const leftSupportProfile = supportProfileFor(d, 'left');
+    const rightSupportProfile = supportProfileFor(d, 'right');
     const firstA = nthOrLast(d.openingList, 0) || d.opening;
     const lastIdx = Math.max(0, d.systemCount - 1);
     const lastA = nthOrLast(d.openingList, lastIdx) || firstA;
     const firstL = Math.max(1, firstA - 100);
     const lastL = Math.max(1, lastA - 100);
     const baseY = -firstA + 100;
-    const leftX = d.solX - 50;
-    const rightX = d.sagX - 50;
 
-    // PERI01 camKaydiUstCiz mantığı:
-    // Farklı açılımda ilk ve son yan kayıtların -Y ucu aynı hizada kalır.
-    // Bu nedenle iki profil de aynı baseY'den başlar; profil boyları poz açılımına göre değiştiği için
-    // +Y uçları Poz1 / Son Poz duvar Y referanslarına göre farklı kotlara gelir.
-    g.rect(leftX, baseY, 100, firstL, 'GLASS');
-    g.rect(rightX, baseY, 100, lastL, 'GLASS');
-    [[leftX, firstL, baseY], [rightX, lastL, baseY]].forEach(([baseX, camL, by]) => {
+    // Sol yan kayıt: -X dış ucu sabit, +X yönüne doğru genişler.
+    const leftX = d.solX - 50;
+    // Sağ yan kayıt: +X dış ucu sabit, -X yönüne doğru genişler.
+    const rightOuterX = d.sagX + 50;
+    const rightX = rightOuterX - topW;
+
+    const items = [
+      { baseX: leftX, camL: firstL, by: baseY, side: 'left' },
+      { baseX: rightX, camL: lastL, by: baseY, side: 'right' }
+    ];
+
+    items.forEach(({ baseX, camL, by, side }) => {
+      // V8.2.79: Cam kaydı uzun profillerinde et/ofset çizilmez; sadece dış kontur görünür.
+      // Et kalınlığı yalnızca destek dikmesinin üst kesit görünüşünde gösterilir.
+      g.rect(baseX, by, topW, camL, 'GLASS');
       if (camL > 5000) {
-        const postY = by + camL / 2 - 50;
-        g.rect(baseX, postY, 100, 100, 'GLASS');
-        g.rect(baseX + 2, postY + 2, 96, 96, 'GLASS');
+        const sp = side === 'left' ? leftSupportProfile : rightSupportProfile;
+        const supTopW = sp.boy;
+        const supSideH = sp.en;
+        const supEt = sp.et;
+        // V8.2.81: Destek kesiti ana cam kaydından farklıysa merkezler değil dış kenarlar hizalanır.
+        // İlk pozda destek -X dış ucu cam kaydı -X dış ucuna, son pozda +X dış uçlar birbirine kilitlenir.
+        const centerY = by + camL / 2;
+        const sx = side === 'left' ? baseX : (baseX + topW - supTopW);
+        const sy = centerY - supSideH / 2;
+        drawHollowRect(g, sx, sy, supTopW, supSideH, 'GLASS', supEt);
       }
     });
   }
@@ -762,10 +944,10 @@
     /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */
     drawTopPergoText(g, d);
 
-    addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`);
+    addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: 'top_opening_pos_1', ruleKey: 'top_opening', field: 'opening', index: 0, label: 'Açılım', view: 'Top', relatedZoneId: 'top_opening_pos_1' } });
 
     if (d.systemCount === 1) {
-      addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
+      addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: 'top_total_width', ruleKey: 'top_total_width', field: 'width', index: 0, label: 'Toplam Genişlik', view: 'Top', relatedZoneId: 'top_total_width_zone' } });
       return;
     }
 
@@ -773,8 +955,8 @@
     // Ölçü çizgisi, oluk profilinin iç kenarından +Y yönüne 500 mm içeride konumlanır.
     const gutterInnerY = -d.opening + K.topGutterH;
     const topWidthDimY = gutterInnerY + 500;
-    systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, gutterInnerY, topWidthDimY, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`));
-    systemGapRanges(d).forEach(gap => addDimH(g, gap.x1, gap.x2, gutterInnerY, topWidthDimY, `${formatMm(gap.x2 - gap.x1)}`));
+    systemRanges(d).forEach(r => addDimH(g, r.x1, r.x2, gutterInnerY, topWidthDimY, `SİSTEM ${r.system + 1} ${formatMm(r.x2 - r.x1)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: `top_system_${r.system + 1}_width`, ruleKey: 'top_system_width', field: 'width', index: r.system, label: `Sistem ${r.system + 1} Genişlik`, view: 'Top', relatedZoneId: `top_system_${r.system + 1}_zone` } }));
+    systemGapRanges(d).forEach((gap, gi) => addDimH(g, gap.x1, gap.x2, gutterInnerY, topWidthDimY, `${formatMm(gap.x2 - gap.x1)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: `top_system_gap_${gi + 1}`, ruleKey: 'info_only', field: '__info__', index: gi, label: 'Sistem Ara Boşluk', view: 'Top', relatedZoneId: `top_system_gap_zone_${gi + 1}`, editable: false } }));
 
     // Çoklu poz toplam üst genişlik:
     // PERI01 yerleşiminde ray arka mekanizma blokları ray merkezinden +40 ile yerleşir.
@@ -789,7 +971,7 @@
       const totalMeasureX2 = sideTrackRange ? sideTrackRange.x2 : lastRange.x2;
       const wallTopMaxY = Math.max(...d.systems.map(sys => Math.max(topWallYAt(d, sys.index), topWallYAt(d, sys.index) + topWallHAt(d, sys.index))));
       const totalDimY = wallTopMaxY + 50;
-      addDimH(g, totalMeasureX1, totalMeasureX2, wallTopMaxY, totalDimY, `TOPLAM GENİŞLİK ${formatMm(totalMeasureX2 - totalMeasureX1)}`);
+      addDimH(g, totalMeasureX1, totalMeasureX2, wallTopMaxY, totalDimY, `TOPLAM GENİŞLİK ${formatMm(totalMeasureX2 - totalMeasureX1)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: 'top_total_measure_width', ruleKey: 'top_total_width', field: 'width', index: 0, label: 'Toplam Genişlik', view: 'Top', relatedZoneId: 'top_total_width_zone' } });
     }
   }
 
@@ -805,12 +987,21 @@
       const rayTopY = onRayTopYForPosition(d, sys.index);
       const rayH = Math.max(1, p.rearHeight - d.frontHeight - K.onRayHCorrection);
       const onRayY = rayTopY - rayH;
-      sys.rays.forEach(x => { g.rect(x, rayTopY, K.rayW, -rayH, 'RAY'); blockRef(g, 'PergoRise Ray Kafası Ön Görünüş', x + 40, onRayY, 110, 70); });
+      sys.rays.forEach(x => { g.rect(x, rayTopY, K.rayW, -rayH, 'Ray - Ön Görünüş'); blockRef(g, 'PergoRise Ray Kafası Ön Görünüş', x + 40, onRayY, 110, 70); });
     });
-    postXs.forEach(x => { blockRef(g, 'PergoRise Dikme Oluk Bağlantı Karşı Görünüş', x, rectStartY, 135, 85); g.rect(x - 50, rectStartY - K.onPostTopDrop, K.postSize, -onDikmeH, 'POST'); blockRef(g, 'PergoRise Dikme Alt Bağlantı Karşı Görünüş', x, altBlokY, 125, 70); });
-    addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`);
+    postXs.forEach((x, idx) => {
+      blockRef(g, 'PergoRise Dikme Oluk Bağlantı Karşı Görünüş', x, rectStartY, 135, 85);
+      g.rect(x - 50, rectStartY - K.onPostTopDrop, K.postSize, -onDikmeH, 'POST');
+      blockRef(g, 'PergoRise Dikme Alt Bağlantı Karşı Görünüş', x, altBlokY, 125, 70);
+      {
+        const hitTopY = rectStartY + 24;
+        const hitBottomY = rectStartY - K.onPostTopDrop - onDikmeH - 24;
+        g.entities.push({ type: 'interaction', kind: 'postEditor', x: x - 62, y: hitBottomY, w: 124, h: hitTopY - hitBottomY, data: { postIndex: idx, postCount: d.postCount, totalRayCount: d.totalRayCount, placementMode: d.manualPostPlacementMode || 'standard' } });
+      }
+    });
+    addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`, { layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_total_width', ruleKey: 'front_total_width', field: 'width', index: 0, label: 'Ön Genişlik', view: 'Front', relatedZoneId: 'front_total_width_zone' } });
     if (!(yes(d.parapet) && d.parapetHeight > 0)) {
-      addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`);
+      addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`, { layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_height', ruleKey: 'front_front_height', field: 'frontHeight', index: 0, label: 'Ön H', view: 'Front', relatedZoneId: 'front_height_zone' } });
     }
 
     // PERI01 LISP v32/v30 parapet mantığı:
@@ -826,11 +1017,11 @@
       const onOlcuAksX = 100;
       const onOlcuAksX2 = -130;
       const smallDim = { scale: 0.82 };
-      addDimV(g, onParapetBaseY, onParapetTopY, onOlcuGeomX, onOlcuAksX, `PARAPET ${formatMm(d.parapetHeight)}`, smallDim);
-      addDimV(g, onParapetTopY, onOlukAltiY, onOlcuGeomX, onOlcuAksX2, `DİKME ${formatMm(onOlukAltiY - onParapetTopY)}`, smallDim);
+      addDimV(g, onParapetBaseY, onParapetTopY, onOlcuGeomX, onOlcuAksX, `PARAPET ${formatMm(d.parapetHeight)}`, { ...smallDim, layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_parapet_height_info', ruleKey: 'parapet_height_info', field: 'parapetHeight', index: 0, label: 'Parapet H', view: 'Front', relatedZoneId: 'front_parapet_zone', editable: false } });
+      addDimV(g, onParapetTopY, onOlukAltiY, onOlcuGeomX, onOlcuAksX2, `DİKME ${formatMm(onOlukAltiY - onParapetTopY)}`, { ...smallDim, layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_post_height_info', ruleKey: 'info_only', field: '__info__', index: 0, label: 'Dikme H', view: 'Front', relatedZoneId: 'front_post_height_zone', editable: false } });
     }
 
-    if (d.systemCount > 1 && postXs.length > 1) { const midY = rectStartY - onDikmeH / 2; for (let i = 0; i < postXs.length - 1; i += 1) addDimH(g, postXs[i] + 50, postXs[i + 1] - 50, midY, midY, formatMm(postXs[i + 1] - postXs[i] - 100)); }
+    if (postXs.length > 1) { const midY = rectStartY - onDikmeH / 2; for (let i = 0; i < postXs.length - 1; i += 1) addDimH(g, postXs[i] + 50, postXs[i + 1] - 50, midY, midY, formatMm(postXs[i + 1] - postXs[i] - 100), { layer: 'Ölçüler - Ön Görünüş', edit: { dimId: `front_post_gap_${i + 1}`, ruleKey: 'front_post_gap', field: '__zone__', index: i, label: `Dikme ${i + 1} - Dikme ${i + 2} Arası`, view: 'Front', relatedZoneId: `front_gap_post_${i + 1}_post_${i + 2}` } }); }
 
   }
 
@@ -880,14 +1071,15 @@
 
   function triangleDogramaDisOlcuCiz(g, baseX, baseY, AB, BC, AD) {
     const dimOff = 300;
-    addDimH(g, baseX, baseX + AB, baseY, baseY - dimOff, formatMm(AB));
-    addDimV(g, baseY, baseY + BC, baseX + AB, baseX + AB + dimOff, formatMm(BC));
-    addDimV(g, baseY, baseY + AD, baseX, baseX - dimOff, formatMm(AD));
-    addDimAligned(g, baseX, baseY + AD, baseX + AB, baseY + BC, baseX + AB / 2, baseY + AD + dimOff, formatMm(Math.sqrt(AB * AB + Math.pow(AD - BC, 2))));
+    addDimH(g, baseX, baseX + AB, baseY, baseY - dimOff, formatMm(AB), { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: 'triangle_ab_info', ruleKey: 'triangle_info', field: '__info__', index: 0, label: 'Üçgen AB', view: 'Side', editable: false } });
+    addDimV(g, baseY, baseY + BC, baseX + AB, baseX + AB + dimOff, formatMm(BC), { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: 'triangle_bc_info', ruleKey: 'triangle_info', field: '__info__', index: 0, label: 'Üçgen BC', view: 'Side', editable: false } });
+    addDimV(g, baseY, baseY + AD, baseX, baseX - dimOff, formatMm(AD), { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: 'triangle_ad_info', ruleKey: 'triangle_info', field: '__info__', index: 0, label: 'Üçgen AD', view: 'Side', editable: false } });
+    addDimAligned(g, baseX, baseY + AD, baseX + AB, baseY + BC, baseX + AB / 2, baseY + AD + dimOff, formatMm(Math.sqrt(AB * AB + Math.pow(AD - BC, 2))), { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: 'triangle_slope_info', ruleKey: 'triangle_info', field: '__info__', index: 0, label: 'Üçgen Eğim', view: 'Side', editable: false } });
   }
 
   function drawOneSideView(g, d, p, stackShiftY) {
-    const rectStartY = -(p.opening + (p.rearHeight - d.frontHeight) + K.frontViewExtraDrop) + stackShiftY;
+    const globalSideShiftY = Number(d.sideGlobalShiftY) || 0;
+    const rectStartY = -(p.opening + (p.rearHeight - d.frontHeight) + K.frontViewExtraDrop) + globalSideShiftY + stackShiftY;
     const dikH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
     const yanPostUstY = rectStartY - K.onPostTopDrop;
     const yanUstY = rectStartY;
@@ -903,20 +1095,47 @@
     const startRayY = bagY - K.sideRayStartOffsetY;
     const rayLen = p.rayLength;
     const aci = p.angleRad;
-    if (d.postCount > 0) { g.rect(yanX, yanPostUstY, -K.postSize, -dikH, 'POST'); blockRef(g, 'PergoRise Dikme Oluk Bağlantı Yan Görünüş', yanX, yanPostUstY, 130, 80, 'BLOCKREF', 270); blockRef(g, 'PergoRise Dikme Alt Bağlantı Yan Görünüş', yanX - 50, yanAltY, 120, 70); }
-    blockRef(g, 'PergoRise Oluk Yan Görünüş Birleştirilmiş', yanX, yanUstY, 220, 135);
-    if (yes(d.glassTrack) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) { const camBaseX = yanX - 100, camBaseY = yanUstY - 3, camW = Math.max(1, p.opening - 100); g.rect(camBaseX, camBaseY, -camW, -100, 'GLASS'); if (camW > 5000) { const destekX = camBaseX - camW / 2 - 50, destekY = camBaseY - 100, destekH = Math.max(1, d.frontHeight - 103 - d.parapetHeight); g.rect(destekX, destekY, 100, -destekH, 'GLASS'); } }
-    if (yes(d.parapet) && d.parapetHeight > 0) { g.rect(duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'WALL'); safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'HATCH_WALL'); }
-    g.rect(duvarX, duvarY, -K.sideWallDepth, p.rearHeight, 'WALL');
+    let sideSupport = null;
+    if (d.postCount > 0) { g.rect(yanX, yanPostUstY, -K.postSize, -dikH, 'Dikme - Yan Görünüş'); blockRef(g, 'PergoRise Dikme Oluk Bağlantı Yan Görünüş', yanX, yanPostUstY, 130, 80, 'Blok - Yan Görünüş', 270); blockRef(g, 'PergoRise Dikme Alt Bağlantı Yan Görünüş', yanX - 50, yanAltY, 120, 70, 'Blok - Yan Görünüş'); }
+    blockRef(g, 'PergoRise Oluk Yan Görünüş Birleştirilmiş', yanX, yanUstY, 220, 135, 'Blok - Yan Görünüş');
+    if (yes(d.glassTrack) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) {
+      const profile = d.glassTrackProfile || normalizeGlassTrackProfile();
+      const sideH = profile.en;
+      const supportScope = p.index === 0 ? 'left' : 'right';
+      const supportProfile = supportProfileFor(d, supportScope);
+      const supportSideH = supportProfile.en;
+      const camBaseX = yanX - 100, camBaseY = yanUstY - 3, camW = Math.max(1, p.opening - 100);
+      // V8.2.79: Yan görünüş cam kaydı profilinde iç ofset çizilmez.
+      // Profilin +Y üst referansı sabit, -Y alt ucu seçilen En değerine göre çalışır.
+      g.rect(camBaseX, camBaseY, -camW, -sideH, 'GLASS');
+      if (p.index === 0) addGlassTrackInteraction(g, camBaseX - camW, camBaseY - sideH, camW, sideH, profile, 'track', 'global');
+      if (camW > 5000) {
+        const supportCenterX = camBaseX - camW / 2;
+        const destekX = supportCenterX - supportSideH / 2;
+        // V8.2.82: Destek boyu ana cam kaydı profilinin En değerine bağlıdır.
+        // Ana cam kaydı değişirse destek boyu uzar/kısalır; sadece destek profili düzenlenirse boy sabit kalır, kesit değişir.
+        const standardSupportTopY = camBaseY - 100;
+        const standardSupportH = Math.max(1, d.frontHeight - 103 - d.parapetHeight);
+        const destekBottomY = standardSupportTopY - standardSupportH;
+        const destekY = camBaseY - sideH;
+        const destekH = Math.max(1, destekY - destekBottomY);
+        g.rect(destekX, destekY, supportSideH, -destekH, 'GLASS');
+        addGlassTrackInteraction(g, destekX, destekY - destekH, supportSideH, destekH, supportProfile, 'support', supportScope);
+        sideSupport = { left: destekX, right: destekX + supportSideH };
+      }
+    }
+    if (yes(d.parapet) && d.parapetHeight > 0) { g.rect(duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'Duvar - Yan Görünüş'); safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', duvarX + p.opening, duvarY + d.parapetHeight, -200, -d.parapetHeight, 'HATCH_WALL'); }
+    g.rect(duvarX, duvarY, -K.sideWallDepth, p.rearHeight, 'Duvar - Yan Görünüş');
     safeHatchBlock(g, 'PULUMUR WALL BRICK SAFE HATCH', duvarX, duvarY, -K.sideWallDepth, p.rearHeight, 'HATCH_WALL');
-    blockRef(g, 'PergoRise Ray Duvar Bağlantı Set', bagX, bagY, 120, 95); blockRef(g, 'PergoRise Ray Arka Mekanizma Yan Görünüş', arkaMekX, arkaMekY, 135, 90, 'BLOCKREF', normDeg(aci * 180 / Math.PI));
-    rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'RAY'); rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'RAY');
-    const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci); const rotDeg = normDeg(aci * 180 / Math.PI); blockRef(g, 'PergoRise Ray Kafası Yan Görünüş', kafa[0], kafa[1], 130, 90, 'BLOCKREF', rotDeg);
+    blockRef(g, 'PergoRise Ray Duvar Bağlantı Set', bagX, bagY, 120, 95, 'Blok - Yan Görünüş'); blockRef(g, 'PergoRise Ray Arka Mekanizma Yan Görünüş', arkaMekX, arkaMekY, 135, 90, 'Blok - Yan Görünüş', normDeg(aci * 180 / Math.PI));
+    rotatedRect(g, startRayX, startRayY, rayLen, -K.sideRayH, arkaMekX, arkaMekY, aci, 'Ray - Yan Görünüş'); rotatedRect(g, startRayX, startRayY - K.sideInnerRayOffsetY, rayLen, -K.sideInnerRayH, arkaMekX, arkaMekY, aci, 'Ray - Yan Görünüş');
+    const kafa = rotatePoint(startRayX + rayLen, startRayY, arkaMekX, arkaMekY, aci); const rotDeg = normDeg(aci * 180 / Math.PI); blockRef(g, 'PergoRise Ray Kafası Yan Görünüş', kafa[0], kafa[1], 130, 90, 'Blok - Yan Görünüş', rotDeg);
     // V8.2.1: Yan görünüşte çatı kayıt profili ve ray çekici araba setleri çizilmez.
     if (K.showDimensions !== false) {
       const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci);
       const angleText = g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
       angleText.keepReadableOnMirror = true;
+      angleText.dimensionFilterType = 'main';
     }
     if (!yes(d.waterStandard)) { const basX = yanX - 35.5; const basY = yanUstY + 13.9; g.rect(basX, basY, 300, 70, 'WATER'); g.text(basX + 310, basY + 35, 'Ø70 Pipe 300 mm', 60, 'WATER', 'left'); }
     p._triangleRange = null;
@@ -939,10 +1158,28 @@
       triangleDogramaDisOlcuCiz(g, copyX, copyY, AB, BC, AD);
       p._triangleRange = { start: triStart, end: g.entities.length };
     }
-    addDimH(g, duvarX, yanX, duvarY - 250, duvarY - 520, `AÇILIM ${formatMm(p.opening)}`); addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`);
+    const postMidY = yanAltY + dikH / 2;
+    const frontPostRearFace = yanX - K.postSize;
+    if (sideSupport) {
+      if (sideSupport.left - duvarX > 150) addDimH(g, duvarX, sideSupport.left, postMidY, postMidY, formatMm(sideSupport.left - duvarX), { scale: 0.72, layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_wall_to_support_${p.index}`, ruleKey: 'side_wall_to_post_gap', field: '__zone__', index: p.index, label: 'Duvar - Destek Arası', view: 'Side', relatedZoneId: `side_wall_to_support_zone_${p.index}`, dimensionType: 'detail' } });
+      if (frontPostRearFace - sideSupport.right > 150) addDimH(g, sideSupport.right, frontPostRearFace, postMidY, postMidY, formatMm(frontPostRearFace - sideSupport.right), { scale: 0.72, layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_support_to_post_${p.index}`, ruleKey: 'side_wall_to_post_gap', field: '__zone__', index: p.index, label: 'Destek - Dikme Arası', view: 'Side', relatedZoneId: `side_support_to_post_zone_${p.index}`, dimensionType: 'detail' } });
+    } else {
+      if (frontPostRearFace - duvarX > 150) addDimH(g, duvarX, frontPostRearFace, postMidY, postMidY, formatMm(frontPostRearFace - duvarX), { scale: 0.72, layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_wall_to_post_${p.index}`, ruleKey: 'side_wall_to_post_gap', field: '__zone__', index: p.index, label: 'Duvar - Dikme Arası', view: 'Side', relatedZoneId: `side_wall_to_post_zone_${p.index}`, dimensionType: 'detail' } });
+    }
+    if (yes(d.glassTrack) && (!d.farkliAcilim || p.index === 0 || p.index === d.sidePositionCount - 1)) {
+      const profile = d.glassTrackProfile || normalizeGlassTrackProfile();
+      const camBottomY = yanUstY - 3 - profile.en;
+      // V8.2.74: Cam kaydı alt kot ölçüsü, yan görünüş dikmesinden duvara doğru 600 mm içeride gösterilir.
+      // V8.2.77: Alt kot, seçilen profilin yan görünüş yüksekliğine göre otomatik değişir.
+      const camTrackDimRefX = yanX;
+      const camTrackDimLineX = yanX - 600;
+      if (camBottomY - duvarY > 150) addDimV(g, duvarY, camBottomY, camTrackDimRefX, camTrackDimLineX, formatMm(camBottomY - duvarY), { scale: 0.72, layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_glass_track_to_wall_${p.index}`, ruleKey: 'info_only', field: '__info__', index: p.index, label: 'Cam Kaydı - Alt Kot', view: 'Side', relatedZoneId: `side_glass_track_zone_${p.index}`, editable: false, dimensionType: 'detail', passiveReason: 'Cam kaydı ile duvar alt kotu arasındaki bilgi ölçüsüdür.' } });
+    }
+    addDimH(g, duvarX, yanX, duvarY, duvarY, `AÇILIM ${formatMm(p.opening)}`, { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_opening_pos_${p.index + 1}`, ruleKey: 'side_opening', field: 'opening', index: p.index, label: 'Açılım', view: 'Side', relatedZoneId: `side_opening_zone_${p.index + 1}` } });
+    addDimV(g, duvarY, duvarY + p.rearHeight, duvarX - K.sideWallDepth - 80, duvarX - K.sideWallDepth - 360, `ARKA ${formatMm(p.rearHeight)}`, { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_rear_height_pos_${p.index + 1}`, ruleKey: 'side_rear_height', field: 'rearHeight', index: p.index, label: 'Arka H', view: 'Side', relatedZoneId: `side_rear_height_zone_${p.index + 1}` } });
     // PERI01: yan görünüş ön yükseklik ölçüsü, parapet aktifken de toplam ön kotu verir.
     // Referans alt kotu duvar/parapet alt kotu, üst kotu oluk altı referansıdır.
-    addDimV(g, duvarY, duvarY + d.frontHeight, yanX, yanX + 350, `ÖN ${formatMm(d.frontHeight)}`);
+    addDimV(g, duvarY, duvarY + d.frontHeight, yanX, yanX + 350, `ÖN ${formatMm(d.frontHeight)}`, { layer: 'Ölçüler - Yan Görünüş', edit: { dimId: `side_front_height_pos_${p.index + 1}`, ruleKey: 'side_front_height', field: 'frontHeight', index: 0, label: 'Ön H', view: 'Side', relatedZoneId: `side_front_height_zone_${p.index + 1}` } });
   }
 
   function triangleFrameAllowance(d, idx) {
@@ -965,9 +1202,10 @@
     // yoksa arka duvarın +Y yönündeki en uç noktasıdır.
     let best = null;
     let shiftY = 0;
+    const globalSideShiftY = Number(d.sideGlobalShiftY) || 0;
     for (let i = 0; i < d.sidePositionCount; i += 1) {
       const p = d.positions[i] || d.positions[0];
-      const wallTopY = -p.opening - K.frontViewExtraDrop + shiftY;
+      const wallTopY = -p.opening - K.frontViewExtraDrop + globalSideShiftY + shiftY;
       let topY = wallTopY;
       const triangleVisible = yes(d.triangleJoinery) && (!d.farkliAcilim || i === 0);
       if (triangleVisible) {
@@ -992,10 +1230,11 @@
     if (!idxs.length) return null;
     let best = null;
     let shiftY = 0;
+    const globalSideShiftY = Number(d.sideGlobalShiftY) || 0;
     for (let i = 0; i < d.sidePositionCount; i += 1) {
       const p = d.positions[i] || d.positions[0];
       if (idxs.includes(i)) {
-        const rectStartY = -(p.opening + K.frontViewExtraDrop) - p.rearHeight + d.frontHeight + shiftY;
+        const rectStartY = -(p.opening + K.frontViewExtraDrop) - p.rearHeight + d.frontHeight + globalSideShiftY + shiftY;
         const bagY = rectStartY - 3;
         const baseY = bagY + 600;
         const denom = Math.abs(p.opening - K.slopeOpeningCorrection) < 1e-9 ? 1 : (p.opening - K.slopeOpeningCorrection);
@@ -1016,8 +1255,12 @@
     d.leftSideRanges = [];
     let shiftY = 0;
     let lastMirrorRange = null;
+    let firstRectStartY = null;
+    const globalSideShiftY = Number(d.sideGlobalShiftY) || 0;
     for (let i = 0; i < d.sidePositionCount; i += 1) {
       const p = { ...d.positions[i], index: i };
+      const thisRectStartY = -(p.opening + (p.rearHeight - d.frontHeight) + K.frontViewExtraDrop) + globalSideShiftY + shiftY;
+      if (firstRectStartY == null) firstRectStartY = thisRectStartY;
       const start = g.entities.length;
       drawOneSideView(g, d, p, shiftY);
       let end = g.entities.length;
@@ -1034,17 +1277,17 @@
           mirrorStart -= removeCount;
           mirrorEnd -= removeCount;
         }
+        if (firstRectStartY != null) {
+          const deltaY = firstRectStartY - thisRectStartY;
+          if (Math.abs(deltaY) > 0.001) moveEntityRangeY(g, mirrorStart, mirrorEnd, deltaY);
+        }
         lastMirrorRange = { start: mirrorStart, end: mirrorEnd, index: p.index };
       }
       d.leftSideRanges.push({ start, end, index: i });
       shiftY -= (p.opening + K.sideViewGapY);
     }
-    // PERI01 v56/v75 kuralı: ayna yan görünüş, özellikle çoklu/farklı açılımda
-    // karşı görünüşün -Y en uç hattına hizalanır. Tek pozda da aynı kuralı koruyoruz.
     if (lastMirrorRange) {
-      const minY = rangeMinYForPostLike(g, lastMirrorRange.start, lastMirrorRange.end);
-      const dy = frontViewMinY(d) - minY;
-      if (Number.isFinite(dy) && Math.abs(dy) > 0.001) moveEntityRangeY(g, lastMirrorRange.start, lastMirrorRange.end, dy);
+      // mirrored right side view is already kept on the same Y axis as the first left side gutter block
     }
   }
 
@@ -1080,6 +1323,7 @@
       const gs = (e.graphics || []).map(entityBoundsArray);
       if (gs.length) return [Math.min(...gs.map(b => b[0])), Math.min(...gs.map(b => b[1])), Math.max(...gs.map(b => b[2])), Math.max(...gs.map(b => b[3]))];
     }
+    if (e.type === 'interaction') return [Math.min(e.x, e.x + e.w), Math.min(e.y, e.y + e.h), Math.max(e.x, e.x + e.w), Math.max(e.y, e.y + e.h)];
     return [0, 0, 0, 0];
   }
 
@@ -1419,6 +1663,38 @@
     g.rect(f.x, f.y, f.w, -f.h, 'OUTLINE');
   }
 
+  function buildSmartMetadata(entities, d) {
+    const dimensions = [];
+    const zones = {};
+    (entities || []).forEach(e => {
+      if (!e || e.type !== 'dimension' || !e.edit) return;
+      const edit = e.edit;
+      dimensions.push({ ...edit });
+      const zoneId = edit.relatedZoneId || edit.zoneId;
+      if (zoneId && !zones[zoneId]) {
+        zones[zoneId] = {
+          id: zoneId,
+          view: edit.view || '',
+          dimensionId: edit.dimId,
+          distance: Number(edit.measuredValue || e.measuredValue || 0),
+          editable: edit.editable !== false,
+          canAddProfile: !!(edit.canAddSameProfile || edit.canAddDifferentProfile),
+          canPlaceProduct: !!edit.canPlaceProduct,
+          allowedProfiles: edit.canAddSameProfile ? ['same_post', 'custom_profile'] : (edit.canAddDifferentProfile ? ['custom_profile'] : []),
+          allowedProducts: edit.canPlaceProduct ? ['sliding_glass', 'zipper', 'fixed_glass'] : [],
+          placedProduct: null
+        };
+      }
+    });
+    return {
+      dimensions,
+      zones: Object.values(zones),
+      profileInstances: [
+        { id: 'side_register_reference', profileTypeId: 'side_register_100', relatedViews: ['side', 'top', 'front'], orientation: { side: 'A_visible', top: 'B_visible', front: 'A_visible' } }
+      ]
+    };
+  }
+
   function buildDrawing(raw) {
     const d = normalizeInput(raw);
     const g = makeEntitySink();
@@ -1430,7 +1706,8 @@
     drawFrame(g, d);
     drawUpperOptionsTable(g, d);
     drawBottomTitleTable(g, d);
-    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: { ...getBlocks(), ...customHatchBlocks() } };
+    const smart = buildSmartMetadata(g.entities, d);
+    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: { ...getBlocks(), ...customHatchBlocks() }, smartDimensions: smart.dimensions, zones: smart.zones, profileInstances: smart.profileInstances, dimensionEditRules: DIMENSION_EDIT_RULES, dimensionActions: DIMENSION_ACTIONS, profileLibrary: PROFILE_LIBRARY, productLibrary: PRODUCT_LIBRARY };
   }
 
   function entityBounds(e, blockLib) {
@@ -1518,14 +1795,67 @@
       } else if (e.type === 'text') {
         const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start');
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
-        parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
+        const dimType = e.dimensionFilterType ? String(e.dimensionFilterType) : '';
+        const cls = dimType ? 'dxf-text preview-dimension-plain' : 'dxf-text';
+        const dimAttr = dimType ? ` data-dimension-type="${escXml(dimType)}"` : '';
+        parts.push(`<text class="${cls}"${dimAttr} x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
       } else if (e.type === 'mtext') {
         const lines = String(e.value || '').split('\\P');
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
         const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join('');
         parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`);
       } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
+      else if (e.type === 'interaction') {
+        const data = e.data || {};
+        const attrs = [
+          ['class', 'preview-interaction-hit'],
+          ['data-interaction-type', e.kind || ''],
+          ['data-post-index', data.postIndex ?? ''],
+          ['data-current-post-count', data.postCount ?? ''],
+          ['data-total-ray-count', data.totalRayCount ?? ''],
+          ['data-placement-mode', data.placementMode || 'standard'],
+          ['data-profile-mode', data.profileMode || ''],
+          ['data-profile-part', data.part || ''],
+          ['data-profile-scope', data.scope || ''],
+          ['data-en', data.en ?? ''],
+          ['data-boy', data.boy ?? ''],
+          ['data-et', data.et ?? '']
+        ].map(([k,v]) => `${k}="${escXml(v)}"`).join(' ');
+        const rx = sx(e.x), ry = sy(e.y + e.h), rw = Math.abs(e.w), rh = Math.abs(e.h);
+        const isGlass = (e.kind || '') === 'glassTrackEditor';
+        const isSupport = isGlass && (data.part || '') === 'support';
+        const postTag = Number.isFinite(Number(data.postIndex)) ? `D${Number(data.postIndex) + 1}` : 'D';
+        const tag = isGlass ? (isSupport ? ((data.scope || '').toLowerCase() === 'right' ? 'SD-R' : 'SD-L') : 'CK') : postTag;
+        const groupClass = isGlass ? 'preview-glass-zone' : 'preview-post-zone';
+        const titleText = isGlass ? (isSupport ? `Destek dikmesi profili düzenle ${(data.scope || '').toLowerCase() === 'right' ? '(sağ)' : '(sol)'}` : 'Cam kaydı profili düzenle') : `Dikme düzenle ${postTag}`;
+        parts.push(`<g class="${groupClass}"><rect ${attrs} x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="transparent" stroke="transparent" stroke-width="1.2" stroke-dasharray="6 4" pointer-events="all" rx="6" ry="6"><title>${escXml(titleText)}</title></rect><text x="${rx + rw / 2}" y="${Math.max(14, ry - 6)}" text-anchor="middle" font-size="12" font-weight="700" fill="${isGlass ? '#0b8043' : '#1a73e8'}">${tag}</text></g>`);
+      }
       else if (e.type === 'dimension') {
+        const edit = e.edit || null;
+        if (edit) {
+          const attrs = [
+            ['class', 'editable-dimension'],
+            ['data-dim-id', edit.dimId || ''],
+            ['data-edit-field', edit.field || ''],
+            ['data-edit-index', edit.index ?? 0],
+            ['data-edit-label', edit.label || ''],
+            ['data-edit-value', edit.measuredValue ?? e.measuredValue ?? ''],
+            ['data-view', edit.view || ''],
+            ['data-zone-id', edit.relatedZoneId || edit.zoneId || ''],
+            ['data-editable', edit.editable === false ? 'false' : 'true'],
+            ['data-dimension-type', edit.dimensionType || 'main'],
+            ['data-action-type', edit.actionType || 'main_resize'],
+            ['data-can-resize', edit.canResize ? 'true' : 'false'],
+            ['data-can-add-same-profile', edit.canAddSameProfile ? 'true' : 'false'],
+            ['data-can-add-different-profile', edit.canAddDifferentProfile ? 'true' : 'false'],
+            ['data-can-place-product', edit.canPlaceProduct ? 'true' : 'false'],
+            ['data-can-remove-element', edit.canRemoveElement ? 'true' : 'false'],
+            ['data-passive-reason', edit.passiveReason || ''],
+            ['data-profile-instance-id', edit.profileInstanceId || ''],
+            ['data-layer', e.layer || 'DIM']
+          ].map(([k,v]) => `${k}="${escXml(v)}"`).join(' ');
+          parts.push(`<g ${attrs}>`);
+        }
         (e.graphics || []).forEach(ge => {
           const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM;
           const gstroke = entityStroke(ge, gst);
@@ -1540,6 +1870,14 @@
             parts.push(`<text class="dxf-text" x="${sx(ge.x)}" y="${sy(ge.y)}" font-size="${ge.height}" text-anchor="${anchor}" fill="${gstroke}"${rot}>${escXml(ge.value)}</text>`);
           }
         });
+        if (edit) {
+          const eb = entityBounds(e, blockLib);
+          const hitPad = 90;
+          const hx = sx(eb[0]) - hitPad, hy = sy(eb[3]) - hitPad;
+          const hw = Math.max(40, Math.abs(eb[2] - eb[0]) + hitPad * 2);
+          const hh = Math.max(40, Math.abs(eb[3] - eb[1]) + hitPad * 2);
+          parts.push(`<rect class="editable-dimension-hit" x="${hx}" y="${hy}" width="${hw}" height="${hh}" fill="transparent" stroke="none" pointer-events="all"><title>${escXml(edit.editable === false ? (edit.passiveReason || 'Bilgi amaçlı ölçü') : ((edit.label || 'Ölçü') + ' değiştir'))}</title></rect></g>`);
+        }
       } else if (e.type === 'insert') {
         const block = blockLib[e.name];
         if (block) {
@@ -1619,7 +1957,7 @@
     return { entities: out, bounds: bounds(out), layerStyle: drawing.layerStyle || LAYER_STYLE };
   }
 
-  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, normalizeInput, buildDrawing, renderSvg, flattenDrawingForExport, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput, aciColorToHex };
+  const api = { SAMPLE_INPUT, LAYER_STYLE, K, BUILD_LABEL, DIMENSION_EDIT_RULES, DIMENSION_ACTIONS, PROFILE_LIBRARY, PRODUCT_LIBRARY, normalizeInput, buildDrawing, renderSvg, flattenDrawingForExport, bounds, formatMm, formatDeg, rayLenFor, sideAngleRadFor, getBlocks, upperTableValueWrapInfo, wrapTextForUpperInput, aciColorToHex };
   root.PulumurGeometry = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
