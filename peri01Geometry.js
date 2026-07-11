@@ -44,7 +44,7 @@
     'Bloklar - Ray Uçları': { stroke: '#808080', width: 0.75, dash: '10 8', aci: 8 },
     'Ürün Yerleşimi - Sürme': { stroke: '#00a0c8', width: 1.05, aci: 4 },
     'Ürün Yerleşimi - Zipper': { stroke: '#00bf00', width: 1.05, aci: 130 },
-    'Ürün Yerleşimi - Giyotin': { stroke: '#9a4cff', width: 1.05, aci: 200 },
+    'Ürün Yerleşimi - Giyotin': { stroke: '#293189', width: 1.05, aci: 167 },
     'Profil - Yan Kayıt - Yan Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
     'Profil - Yan Kayıt - Üst Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
     'Profil - Yan Kayıt - Ön Görünüş': { stroke: '#d35400', width: 1.05, aci: 30 },
@@ -101,7 +101,7 @@
   // V8.2.66: Ölçü -> Zone -> Profil / Ürün -> Görünüşler arası ilişki -> DXF layer altyapısı.
   const DIMENSION_ACTIONS = {
     main_resize: { canResize: true, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: false, canRemoveElement: false },
-    gap_between_posts: { canResize: false, canAddSameProfile: true, canAddDifferentProfile: true, canPlaceProduct: true, canRemoveElement: false },
+    gap_between_posts: { canResize: true, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: true, canRemoveElement: false },
     wall_to_post_gap: { canResize: false, canAddSameProfile: false, canAddDifferentProfile: true, canPlaceProduct: true, canRemoveElement: false },
     system_width: { canResize: true, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: true, canRemoveElement: false },
     fixed_block_size: { canResize: false, canAddSameProfile: false, canAddDifferentProfile: false, canPlaceProduct: false, canRemoveElement: false, passiveReason: 'Bu blok sabit parçadır. Ölçüsü değiştirilemez.' },
@@ -132,7 +132,7 @@
 
   const PRODUCT_LIBRARY = {
     sliding_glass: { id: 'sliding_glass', name: 'Sürme Cam', layer: 'Ürün Yerleşimi - Sürme' },
-    guillotine_glass: { id: 'guillotine_glass', name: 'Giyotin / Yürüyen Sistem', layer: 'Ürün Yerleşimi - Giyotin' },
+    guillotine_glass: { id: 'guillotine_glass', name: 'Giyotin Cam', layer: 'Ürün Yerleşimi - Giyotin' },
     zipper: { id: 'zipper', name: 'Zipper Perde', layer: 'Ürün Yerleşimi - Zipper' },
     fixed_glass: { id: 'fixed_glass', name: 'Sabit Cam', layer: 'GLASS' },
     door: { id: 'door', name: 'Kapı', layer: 'GLASS' },
@@ -167,7 +167,7 @@
     };
   }
 
-  const BUILD_LABEL = 'WEB DXF V8.2.71 - FILTER ONLY / POST EDITOR RADIO ALIGN - 10.07.2026';
+  const BUILD_LABEL = 'WEB DXF V8.4.5 - PREVIEW/PDF/DXF HATCH PARITY - 11.07.2026';
   function bridge() { return root.PulumurExcelBridge || null; }
 
   const SAMPLE_INPUT = {
@@ -305,6 +305,68 @@
     return { systems, systemCount: sysCount, noGapMode: noMode, explicitWidth, explicitRay, totalNet, totalNominal };
   }
 
+  function normalizeSlidingPlacement(item, index = 0) {
+    const raw = item || {};
+    const gapIndex = Math.max(0, Math.round(Number(raw.gapIndex) || 0));
+    const width = Math.max(1, Number(raw.width) || 1);
+    const height = Math.max(1, Number(raw.height) || 1);
+    let panelCount = Math.max(2, Math.round(Number(raw.panelCount) || 2));
+    const openingType = String(raw.openingType || 'SIDE OPENING').trim().toUpperCase() === 'CENTER OPENING' ? 'CENTER OPENING' : 'SIDE OPENING';
+    if (openingType === 'CENTER OPENING') {
+      panelCount = Math.max(4, panelCount);
+      if (panelCount % 2 !== 0) panelCount += 1;
+    }
+    const pozNo = String(raw.pozNo || `S${String(index + 1).padStart(2, '0')}`).trim().toUpperCase();
+    return {
+      id: String(raw.id || `sliding_${pozNo}_${gapIndex}`),
+      gapIndex,
+      series: String(raw.series || 'A SERIES').trim().toUpperCase(),
+      type: String(raw.type || 'WITH THRESHOLD').trim().toUpperCase(),
+      openingType,
+      glassThickness: String(raw.glassThickness || '10 MM').trim().toUpperCase(),
+      glassColor: String(raw.glassColor || 'TRANSPARENT').trim().toUpperCase(),
+      width,
+      height,
+      panelCount,
+      quantity: Math.max(1, Math.round(Number(raw.quantity) || 1)),
+      pozNo,
+      leftPostStandard: raw.leftPostStandard !== false
+    };
+  }
+
+
+  function normalizeGuillotinePlacement(item, index = 0) {
+    const raw = item || {};
+    const gapIndex = Math.max(0, Math.round(Number(raw.gapIndex) || 0));
+    const series = String(raw.series || 'A SERIES').trim().toUpperCase() === 'K SERIES' ? 'K SERIES' : 'A SERIES';
+    let type = String(raw.type || 'STANDARD').trim().toUpperCase();
+    if (!['STANDARD', 'CLEANABLE', 'UPWARD COLLECTING'].includes(type)) type = 'STANDARD';
+    if (series === 'K SERIES' && type === 'UPWARD COLLECTING') type = 'STANDARD';
+    let mechanism = String(raw.mechanism || 'CHAIN').trim().toUpperCase();
+    if (!['CHAIN', 'BELT'].includes(mechanism)) mechanism = 'CHAIN';
+    if (series === 'K SERIES') mechanism = 'BELT';
+    let glassThickness = String(raw.glassThickness || '8 MM').trim().toUpperCase();
+    if (!['8 MM', 'INSULATED GLASS'].includes(glassThickness)) glassThickness = '8 MM';
+    if (series === 'K SERIES') glassThickness = 'INSULATED GLASS';
+    const panelCount = String(raw.panelCount || '1+1').trim() === '1+2' ? '1+2' : '1+1';
+    const pozNo = String(raw.pozNo || `G${String(index + 1).padStart(2, '0')}`).trim().toUpperCase();
+    return {
+      id: String(raw.id || `guillotine_${pozNo}_${gapIndex}`),
+      gapIndex, series, type, mechanism, glassThickness,
+      glassColor: String(raw.glassColor || 'TRANSPARENT').trim().toUpperCase(),
+      panelCount,
+      motorDirection: String(raw.motorDirection || 'RIGHT').trim().toUpperCase() === 'LEFT' ? 'LEFT' : 'RIGHT',
+      view: String(raw.view || 'INSIDE VIEW').trim().toUpperCase() === 'OUTSIDE VIEW' ? 'OUTSIDE VIEW' : 'INSIDE VIEW',
+      motorType: String(raw.motorType || 'SOMFY RTS').trim().toUpperCase(),
+      remoteControl: String(raw.remoteControl || '1 CHANNEL').trim().toUpperCase(),
+      width: Math.max(1, Number(raw.width) || 1),
+      height: Math.max(1, Number(raw.height) || 1),
+      quantity: 1,
+      pozNo,
+      leftPostStandard: raw.leftPostStandard !== false
+    };
+  }
+
   function normalizeInput(raw) {
     const d = { ...SAMPLE_INPUT, ...(raw || {}) };
 
@@ -374,6 +436,15 @@
       left: normalizeGlassTrackProfile(raw && raw.__glassTrackSupportProfiles && raw.__glassTrackSupportProfiles.left ? raw.__glassTrackSupportProfiles.left : d.glassTrackProfile),
       right: normalizeGlassTrackProfile(raw && raw.__glassTrackSupportProfiles && raw.__glassTrackSupportProfiles.right ? raw.__glassTrackSupportProfiles.right : d.glassTrackProfile)
     };
+    d.customFrontPostCenters = Array.isArray(raw && raw.__frontPostCenters)
+      ? raw.__frontPostCenters.map(Number).filter(Number.isFinite)
+      : null;
+    d.slidingPlacements = Array.isArray(raw && raw.__slidingPlacements)
+      ? raw.__slidingPlacements.map((item, index) => normalizeSlidingPlacement(item, index)).filter(Boolean)
+      : [];
+    d.guillotinePlacements = Array.isArray(raw && raw.__guillotinePlacements)
+      ? raw.__guillotinePlacements.map((item, index) => normalizeGuillotinePlacement(item, index)).filter(Boolean)
+      : [];
 
     const sys = buildSystems(d, d);
     d.systems = sys.systems;
@@ -420,6 +491,21 @@
     d.angle = Math.abs(d.angleRad) * 180 / Math.PI;
     d.rayLength = rayLenFor(d.opening, d.rearHeight, d.frontHeight);
     d.uzunluk = d.opening - K.rayLengthFrontDeduct;
+    d.postCenterXs = postCenterXs(d);
+    d.slidingPlacements = (d.slidingPlacements || []).filter(item => item.gapIndex < d.postCenterXs.length - 1).map(item => {
+      const clearGap = Math.max(1, d.postCenterXs[item.gapIndex + 1] - d.postCenterXs[item.gapIndex] - K.postSize);
+      const width = Math.max(1, clearGap - 5);
+      let panelCount = Math.max(2, Math.ceil(width / 1200));
+      if (item.openingType === 'CENTER OPENING') {
+        panelCount = Math.max(4, panelCount);
+        if (panelCount % 2 !== 0) panelCount += 1;
+      }
+      return { ...item, width, panelCount };
+    });
+    d.guillotinePlacements = (d.guillotinePlacements || []).filter(item => item.gapIndex < d.postCenterXs.length - 1).map(item => {
+      const clearGap = Math.max(1, d.postCenterXs[item.gapIndex + 1] - d.postCenterXs[item.gapIndex] - K.postSize);
+      return { ...item, width: Math.max(1, clearGap - 5) };
+    });
     return d;
   }
 
@@ -462,13 +548,19 @@
     const scale = Number(options.scale || 1) > 0 ? Number(options.scale || 1) : 1;
     const textH = 180 * scale;
     const arrowSize = 100 * scale;
+    const lineColor = Number.isFinite(Number(options.color)) ? Number(options.color) : 42;
+    const textColor = Number.isFinite(Number(options.textColor)) ? Number(options.textColor) : 1;
+    const a1 = dimArrowPoly(q1x, q1y, ang, arrowSize, layer);
+    const a2 = dimArrowPoly(q2x, q2y, ang + Math.PI, arrowSize, layer);
+    a1.color = lineColor;
+    a2.color = lineColor;
     return [
-      { type: 'line', layer, x1, y1, x2: q1x, y2: q1y, color: 42 },
-      { type: 'line', layer, x1: x2, y1: y2, x2: q2x, y2: q2y, color: 42 },
-      { type: 'line', layer, x1: q1x, y1: q1y, x2: q2x, y2: q2y, color: 42 },
-      dimArrowPoly(q1x, q1y, ang, arrowSize, layer),
-      dimArrowPoly(q2x, q2y, ang + Math.PI, arrowSize, layer),
-      { type: 'text', layer: options.textLayer || layer, x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: 1 }
+      { type: 'line', layer, x1, y1, x2: q1x, y2: q1y, color: lineColor },
+      { type: 'line', layer, x1: x2, y1: y2, x2: q2x, y2: q2y, color: lineColor },
+      { type: 'line', layer, x1: q1x, y1: q1y, x2: q2x, y2: q2y, color: lineColor },
+      a1,
+      a2,
+      { type: 'text', layer: options.textLayer || layer, x: textX, y: textY, value: textValue, height: textH, align: 'center', rotation: textRot, color: textColor }
     ];
   }
 
@@ -486,7 +578,9 @@
       graphics: dimGraphicsAligned(x1, y1, x2, y2, q1x, q1y, q2x, q2y, textX, textY, textValue, rotationDeg, options)
     };
     if (options && options.edit) ent.edit = enrichDimensionEdit(options.edit, measured);
+    if (options && options.dimensionFilterType) ent.dimensionFilterType = String(options.dimensionFilterType);
     if (options && options.layer) ent.layer = options.layer;
+    if (options && Number.isFinite(Number(options.entityColor))) ent.color = Number(options.entityColor);
     g.dimension(ent);
   }
 
@@ -723,6 +817,15 @@
   function postCenterXs(d) {
     if (d.postCount <= 0) return [];
     if (d.postCount === 1) return [K.systemStartX + d.width / 2];
+    if (Array.isArray(d.customFrontPostCenters) && d.customFrontPostCenters.length === d.postCount) {
+      const custom = d.customFrontPostCenters.map(Number);
+      const valid = custom.every(Number.isFinite) && custom.every((x, i) => i === 0 || x > custom[i - 1] + K.postSize);
+      if (valid) {
+        custom[0] = d.solX;
+        custom[custom.length - 1] = d.sagX;
+        if (custom.every((x, i) => i === 0 || x > custom[i - 1] + K.postSize)) return custom;
+      }
+    }
     if (d.manualPostPlacementMode === 'equal') {
       return Array.from({ length: d.postCount }, (_, i) => d.solX + ((d.sagX - d.solX) / Math.max(1, d.postCount - 1)) * i);
     }
@@ -747,20 +850,26 @@
 
 
   function customHatchBlocks() {
+    // V8.4.5: Bu bloklar geometri yer tutucusudur; önizleme/PDF sabit model-uzayı desenini doğrudan üretir, Modern DXF motoru gerçek HATCH'e dönüştürür.
     const brick = [];
-    const brickCourse = 200;
-    for (let y = brickCourse; y < 1000; y += brickCourse) brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: 0, y1: y, x2: 1000, y2: y });
-    for (let row = 0; row < 5; row += 1) {
+    const brickCourse = 190.5;
+    const brickWidth = 381;
+    for (let y = brickCourse; y < 1000; y += brickCourse) {
+      brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: 0, y1: y, x2: 1000, y2: y });
+    }
+    for (let row = 0; row <= Math.ceil(1000 / brickCourse); row += 1) {
       const y1 = row * brickCourse;
       const y2 = Math.min(1000, y1 + brickCourse);
-      const start = row % 2 === 0 ? 250 : 125;
-      for (let x = start; x < 1000; x += 250) brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: x, y1, x2: x, y2 });
+      const rowOffset = row % 2 === 0 ? 0 : brickWidth / 2;
+      for (let x = rowOffset; x <= 1000; x += brickWidth) {
+        if (x > 0 && x < 1000) brick.push({ type: 'line', layer: 'HATCH_WALL', color: 8, x1: x, y1, x2: x, y2 });
+      }
     }
 
     const trapez = [];
-    for (let x = 75; x < 1000; x += 150) {
+    for (let x = 0; x < 1000; x += 150) {
       trapez.push({ type: 'line', layer: 'HATCH_FABRIC', color: 42, x1: x, y1: 0, x2: x, y2: 1000 });
-      trapez.push({ type: 'line', layer: 'HATCH_FABRIC', color: 42, x1: x + 42, y1: 0, x2: x + 42, y2: 1000 });
+      if (x + 42 < 1000) trapez.push({ type: 'line', layer: 'HATCH_FABRIC', color: 42, x1: x + 42, y1: 0, x2: x + 42, y2: 1000 });
     }
 
     return {
@@ -773,10 +882,9 @@
     const ww = Number(w) || 0;
     const hh = Number(h) || 0;
     if (Math.abs(ww) < 50 || Math.abs(hh) < 50) return;
-    // R12 güvenli tarama: gerçek HATCH yerine 1000x1000 blok tek INSERT ile ölçeklenir.
-    // X yönünde negatif ölçek, özellikle aynalı yan görünüşlerde taramayı duvar dışına taşıyabiliyordu.
-    // Bu yüzden INSERT noktası gerçek sol sınıra alınır; X ölçeği her zaman pozitif tutulur.
-    // Y yönünde üst referansı korumak için gerektiğinde negatif scaleY kullanılabilir.
+    // Çizim modelinde tarama alanı hafif bir INSERT taşıyıcısıyla tutulur.
+    // Modern DXF motoru bunu gerçek HATCH'e, önizleme/PDF motoru ise aynı ölçekli kesilmiş çizgi desenine dönüştürür.
+    // X referansı normalize edilerek aynalı sağ görünüşte taramanın duvar dışına taşması engellenir.
     const insX = ww >= 0 ? x : x + ww;
     const scaleX = Math.abs(ww) / 1000;
     const scaleY = hh / 1000;
@@ -944,7 +1052,8 @@
     /* drawTopTrapez disabled for no-polyline-simplify lightweight DXF */
     drawTopPergoText(g, d);
 
-    addDimV(g, 0, -d.opening, 100, 100, `AÇILIM ${formatMm(d.opening)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: 'top_opening_pos_1', ruleKey: 'top_opening', field: 'opening', index: 0, label: 'Açılım', view: 'Top', relatedZoneId: 'top_opening_pos_1' } });
+    // V8.4.5: Üst görünüşte açılım ölçüsü gösterilmez.
+    // Açılım ölçüsü yan görünüşte poz bazlı olarak korunur.
 
     if (d.systemCount === 1) {
       addDimH(g, d.rayAreaStartX - 6, d.rayAreaStartX + d.raySystemW + 6, 0, 800, `GENİŞLİK ${formatMm(d.nominalWidth)}`, { layer: 'Ölçüler - Üst Görünüş', edit: { dimId: 'top_total_width', ruleKey: 'top_total_width', field: 'width', index: 0, label: 'Toplam Genişlik', view: 'Top', relatedZoneId: 'top_total_width_zone' } });
@@ -975,8 +1084,300 @@
     }
   }
 
+  function slidingBlockName(placement) {
+    const poz = String((placement && placement.pozNo) || 'S01').toUpperCase().replace(/[^A-Z0-9_-]+/g, '_');
+    return `SLIDING_POZ_${poz}`;
+  }
+
+  // V8.4.3: Sliding iç bilgi tablosu kodda korunur fakat varsayılan olarak çizilmez.
+  // İleride başka bir yerleşim modunda placement.showInternalTable=true ile yeniden kullanılabilir.
+  const SLIDING_INTERNAL_TABLE_ENABLED = false;
+
+  function slidingTextHeight(value, cellW, baseH, minH = 12) {
+    const text = String(value || '');
+    const len = Math.max(1, text.length);
+    const maxByWidth = Math.floor(Math.max(1, cellW - 18) / (len * 0.60));
+    return Math.max(minH, Math.min(baseH, maxByWidth));
+  }
+
+  function slidingArrowEntity(panel, direction, y, color = 4) {
+    const inset = 30;
+    const x1 = panel.x1 + inset;
+    const x2 = panel.x2 - inset;
+    const height = 400;
+    const headLen = height / 2;
+    const halfHead = height / 2.4;
+    const points = direction === 'RIGHT'
+      ? [[x1, y], [x2, y], [x2 - headLen, y + halfHead], [x2, y], [x2 - headLen, y - halfHead]]
+      : [[x2, y], [x1, y], [x1 + headLen, y + halfHead], [x1, y], [x1 + headLen, y - halfHead]];
+    return { type: 'polyline', layer: 'Ürün Yerleşimi - Sürme', color, closed: false, points };
+  }
+
+  function chooseSlidingTablePanel(panels, occupied) {
+    const defaultIndex = Math.min(1, Math.max(0, panels.length - 1));
+    if (!occupied.has(defaultIndex)) return { index: defaultIndex, greyArrowPanel: null };
+    const empty = panels.map((_, i) => i).filter(i => !occupied.has(i));
+    if (empty.length) {
+      empty.sort((a, b) => Math.abs(a - defaultIndex) - Math.abs(b - defaultIndex) || a - b);
+      return { index: empty[0], greyArrowPanel: null };
+    }
+    return { index: defaultIndex, greyArrowPanel: defaultIndex };
+  }
+
+  function addSlidingTableEntities(entities, panel, placement) {
+    const layer = 'Ürün Yerleşimi - Sürme';
+    const color = 4;
+    const x = panel.x1 + 30;
+    const y = panel.y1 + 30;
+    const w = Math.max(50, panel.x2 - panel.x1 - 60);
+    const h = Math.max(100, panel.y2 - panel.y1 - 60);
+    const rows = [
+      [`SLIDING POZ ${placement.pozNo}`, ''],
+      ['POZ NO', placement.pozNo],
+      ['SERIES', placement.series],
+      ['TYPE', placement.type],
+      ['OPENING TYPE', placement.openingType],
+      ['GLASS THICKNESS', placement.glassThickness],
+      ['GLASS COLOR', placement.glassColor],
+      ['QUANTITY', String(placement.quantity)],
+      ['SIZE', `${Math.round(placement.width)} X ${Math.round(placement.height)} MM`],
+      ['PANEL COUNT', String(placement.panelCount)]
+    ];
+    const rowH = h / rows.length;
+    const topY = y + h;
+    const splitX = x + w * 0.50;
+    const leftW = splitX - x;
+    const rightW = x + w - splitX;
+    entities.push({ type: 'polyline', layer, color, closed: true, points: [[x, y], [x + w, y], [x + w, topY], [x, topY]] });
+    entities.push({ type: 'line', layer, color, x1: splitX, y1: y, x2: splitX, y2: topY - rowH });
+    for (let i = 1; i < rows.length; i += 1) {
+      const yy = topY - i * rowH;
+      entities.push({ type: 'line', layer, color, x1: x, y1: yy, x2: x + w, y2: yy });
+    }
+    rows.forEach((row, i) => {
+      const cy = topY - i * rowH - rowH / 2;
+      if (i === 0) {
+        const th = slidingTextHeight(row[0], w, Math.min(28, rowH * 0.55), 12);
+        entities.push({ type: 'text', layer, color, x: x + w / 2, y: cy, value: row[0], height: th, width: Math.max(1, w - 16), align: 'center', rotation: 0 });
+      } else {
+        const leftH = slidingTextHeight(row[0], leftW, Math.min(24, rowH * 0.48), 10);
+        const rightH = slidingTextHeight(row[1], rightW, Math.min(24, rowH * 0.48), 10);
+        entities.push({ type: 'text', layer, color, x: x + 8, y: cy, value: row[0], height: leftH, width: Math.max(1, leftW - 16), align: 'left', rotation: 0 });
+        entities.push({ type: 'text', layer, color, x: x + w - 8, y: cy, value: row[1], height: rightH, width: Math.max(1, rightW - 16), align: 'right', rotation: 0 });
+      }
+    });
+  }
+
+  function buildSlidingBlockDefinition(placement) {
+    const layer = 'Ürün Yerleşimi - Sürme';
+    const color = 4;
+    const width = Math.max(1, Number(placement.width) || 1);
+    const height = Math.max(1, Number(placement.height) || 1);
+    const offset = 50;
+    const mullionW = 50;
+    const innerX = offset;
+    const innerY = offset;
+    const innerW = Math.max(1, width - offset * 2);
+    const innerH = Math.max(1, height - offset * 2);
+    const panelCount = Math.max(2, Math.round(Number(placement.panelCount) || 2));
+    const clearW = Math.max(1, (innerW - (panelCount - 1) * mullionW) / panelCount);
+    const entities = [
+      { type: 'polyline', layer, color, closed: true, points: [[0, 0], [width, 0], [width, height], [0, height]] },
+      { type: 'polyline', layer, color, closed: true, points: [[innerX, innerY], [innerX + innerW, innerY], [innerX + innerW, innerY + innerH], [innerX, innerY + innerH]] }
+    ];
+    const panels = [];
+    let cursor = innerX;
+    for (let i = 0; i < panelCount; i += 1) {
+      const x1 = cursor;
+      const x2 = x1 + clearW;
+      panels.push({ x1, x2, y1: innerY, y2: innerY + innerH });
+      cursor = x2;
+      if (i < panelCount - 1) {
+        entities.push({ type: 'polyline', layer, color, closed: true, points: [[cursor, innerY], [cursor + mullionW, innerY], [cursor + mullionW, innerY + innerH], [cursor, innerY + innerH]] });
+        cursor += mullionW;
+      }
+    }
+
+    const arrowDefs = [];
+    const occupied = new Set();
+    const arrowY = height / 2;
+    if (placement.openingType === 'CENTER OPENING') {
+      const leftIndex = Math.max(0, panelCount / 2 - 1);
+      const rightIndex = Math.min(panelCount - 1, panelCount / 2);
+      occupied.add(leftIndex);
+      occupied.add(rightIndex);
+      arrowDefs.push({ panelIndex: leftIndex, direction: 'LEFT' });
+      arrowDefs.push({ panelIndex: rightIndex, direction: 'RIGHT' });
+    } else {
+      occupied.add(0);
+      occupied.add(panelCount - 1);
+      arrowDefs.push({ panelIndex: 0, direction: 'RIGHT' });
+      arrowDefs.push({ panelIndex: panelCount - 1, direction: 'LEFT' });
+    }
+    const showInternalTable = placement.showInternalTable === true || SLIDING_INTERNAL_TABLE_ENABLED;
+    const tableChoice = showInternalTable ? chooseSlidingTablePanel(panels, occupied) : null;
+    arrowDefs.forEach(def => {
+      const arrowColor = tableChoice && tableChoice.greyArrowPanel === def.panelIndex ? 8 : 4;
+      entities.push(slidingArrowEntity(panels[def.panelIndex], def.direction, arrowY, arrowColor));
+    });
+    if (showInternalTable && tableChoice) addSlidingTableEntities(entities, panels[tableChoice.index], placement);
+    return {
+      dxfName: slidingBlockName(placement),
+      entities,
+      bounds: { minX: 0, minY: 0, maxX: width, maxY: height }
+    };
+  }
+
+  function slidingBlocksFor(d) {
+    const blocks = {};
+    (d.slidingPlacements || []).forEach(placement => {
+      const name = slidingBlockName(placement);
+      blocks[name] = buildSlidingBlockDefinition(placement);
+    });
+    return blocks;
+  }
+
+  function drawSlidingPlacements(g, d, postXs, rectStartY, onDikmeH) {
+    if (!Array.isArray(d.slidingPlacements) || !d.slidingPlacements.length || postXs.length < 2) return;
+    const postBottomY = rectStartY - K.onPostTopDrop - onDikmeH;
+    d.slidingPlacements.forEach(placement => {
+      const gapIndex = Math.max(0, Math.min(postXs.length - 2, Number(placement.gapIndex) || 0));
+      const leftCenter = postXs[gapIndex];
+      const rightCenter = postXs[gapIndex + 1];
+      const clearGap = Math.max(1, rightCenter - leftCenter - K.postSize);
+      const width = Math.max(1, Math.min(Number(placement.width) || clearGap - 5, clearGap - 5));
+      const height = Math.max(1, Number(placement.height) || (d.frontHeight - d.parapetHeight - 5));
+      const baseX = leftCenter + K.postSize / 2;
+      const baseY = postBottomY - (placement.leftPostStandard !== false ? K.onPostHeightCorrection : 0);
+      const name = slidingBlockName(placement);
+      g.insert(name, baseX, baseY, { layer: 'Ürün Yerleşimi - Sürme', previewW: width, previewH: height });
+      const dimScale = 0.32;
+      addDimH(g, baseX, baseX + width, baseY, baseY + 90, String(Math.round(width)), {
+        layer: 'Ölçüler - Detay',
+        scale: dimScale,
+        color: 1,
+        textColor: 1,
+        entityColor: 1,
+        dimensionFilterType: 'detail'
+      });
+      addDimV(g, baseY, baseY + height, baseX + width, baseX + width - 85, String(Math.round(height)), {
+        layer: 'Ölçüler - Detay',
+        scale: dimScale,
+        color: 1,
+        textColor: 1,
+        entityColor: 1,
+        dimensionFilterType: 'detail'
+      });
+    });
+  }
+
+
+  function guillotineBlockName(placement) {
+    const poz = String((placement && placement.pozNo) || 'G01').toUpperCase().replace(/[^A-Z0-9_-]+/g, '_');
+    return `GUILLOTINE_POZ_${poz}`;
+  }
+
+  function guillotineArrowEntity(panel, direction, x) {
+    const y1 = panel.y1 + 30;
+    const y2 = panel.y2 - 30;
+    const headWidth = Math.min(400, Math.max(120, (panel.x2 - panel.x1) * 0.35));
+    const halfW = headWidth / 2;
+    const headH = Math.min(Math.abs(y2 - y1) * 0.22, 170);
+    const points = direction === 'UP'
+      ? [[x, y1], [x, y2], [x - halfW, y2 - headH], [x, y2], [x + halfW, y2 - headH]]
+      : [[x, y2], [x, y1], [x - halfW, y1 + headH], [x, y1], [x + halfW, y1 + headH]];
+    return { type: 'polyline', layer: 'Ürün Yerleşimi - Giyotin', closed: false, points };
+  }
+
+  function guillotineMotorTextHeight(width, viewText) {
+    let h = Math.min(62, Math.max(24, width / 58));
+    const motorW = () => 5 * h * 0.58;
+    const viewW = () => Math.max(1, String(viewText || '').length) * h * 0.58;
+    while (h > 18 && width / 2 - viewW() / 2 - motorW() < 100) h -= 1;
+    return h;
+  }
+
+  function buildGuillotineBlockDefinition(placement) {
+    const layer = 'Ürün Yerleşimi - Giyotin';
+    const width = Math.max(151, Number(placement.width) || 151);
+    const height = Math.max(251, Number(placement.height) || 251);
+    const innerX = 50;
+    const innerY = 50;
+    const innerW = Math.max(1, width - 100);
+    const innerH = Math.max(1, height - 200);
+    const panelTotal = placement.panelCount === '1+2' ? 3 : 2;
+    const separatorH = 50;
+    const clearPanelH = Math.max(1, (innerH - (panelTotal - 1) * separatorH) / panelTotal);
+    const entities = [
+      { type: 'polyline', layer, closed: true, points: [[0, 0], [width, 0], [width, height], [0, height]] },
+      { type: 'polyline', layer, closed: true, points: [[innerX, innerY], [innerX + innerW, innerY], [innerX + innerW, innerY + innerH], [innerX, innerY + innerH]] }
+    ];
+    const panels = [];
+    let cursorY = innerY;
+    for (let i = 0; i < panelTotal; i += 1) {
+      const y1 = cursorY;
+      const y2 = y1 + clearPanelH;
+      panels.push({ x1: innerX, x2: innerX + innerW, y1, y2 });
+      cursorY = y2;
+      if (i < panelTotal - 1) {
+        entities.push({ type: 'polyline', layer, closed: true, points: [[innerX, cursorY], [innerX + innerW, cursorY], [innerX + innerW, cursorY + separatorH], [innerX, cursorY + separatorH]] });
+        cursorY += separatorH;
+      }
+    }
+    const type = String(placement.type || 'STANDARD').toUpperCase();
+    const arrowPanel = type === 'UPWARD COLLECTING' ? panels[0] : panels[panels.length - 1];
+    const direction = type === 'UPWARD COLLECTING' ? 'UP' : 'DOWN';
+    entities.push(guillotineArrowEntity(arrowPanel, direction, innerX + innerW / 2));
+    if (type === 'CLEANABLE') {
+      const bottom = panels[0];
+      const topY = bottom.y2 - 10;
+      const mid = [innerX + innerW / 2, bottom.y1 + 10];
+      entities.push({ type: 'polyline', layer, closed: false, points: [[innerX + 10, topY], mid, [innerX + innerW - 10, topY]] });
+    }
+    const viewText = String(placement.view || 'INSIDE VIEW').toUpperCase();
+    const textH = guillotineMotorTextHeight(width, viewText);
+    const bandY = height - 75;
+    const motorRight = String(placement.motorDirection || 'RIGHT').toUpperCase() !== 'LEFT';
+    entities.push({ type: 'text', layer, x: motorRight ? width - 10 : 10, y: bandY, height: textH, value: 'MOTOR', align: motorRight ? 'right' : 'left', rotation: 0 });
+    entities.push({ type: 'text', layer, x: width / 2, y: bandY, height: textH, value: viewText, align: 'center', rotation: 0 });
+    return { dxfName: guillotineBlockName(placement), entities, bounds: { minX: 0, minY: 0, maxX: width, maxY: height } };
+  }
+
+  function guillotineBlocksFor(d) {
+    const blocks = {};
+    (d.guillotinePlacements || []).forEach(placement => {
+      const name = guillotineBlockName(placement);
+      blocks[name] = buildGuillotineBlockDefinition(placement);
+    });
+    return blocks;
+  }
+
+  function drawGuillotinePlacements(g, d, postXs, rectStartY, onDikmeH) {
+    if (!Array.isArray(d.guillotinePlacements) || !d.guillotinePlacements.length || postXs.length < 2) return;
+    const postBottomY = rectStartY - K.onPostTopDrop - onDikmeH;
+    d.guillotinePlacements.forEach(placement => {
+      const gapIndex = Math.max(0, Math.min(postXs.length - 2, Number(placement.gapIndex) || 0));
+      const leftCenter = postXs[gapIndex];
+      const rightCenter = postXs[gapIndex + 1];
+      const clearGap = Math.max(1, rightCenter - leftCenter - K.postSize);
+      const width = Math.max(1, Math.min(Number(placement.width) || clearGap - 5, clearGap - 5));
+      const height = Math.max(1, Number(placement.height) || (d.frontHeight - d.parapetHeight - 5));
+      const baseX = leftCenter + K.postSize / 2;
+      const baseY = postBottomY - (placement.leftPostStandard !== false ? K.onPostHeightCorrection : 0);
+      const name = guillotineBlockName(placement);
+      g.insert(name, baseX, baseY, { layer: 'Ürün Yerleşimi - Giyotin', previewW: width, previewH: height });
+      const dimScale = 0.32;
+      addDimH(g, baseX, baseX + width, baseY, baseY + 90, String(Math.round(width)), {
+        layer: 'Ölçüler - Detay', scale: dimScale, color: 1, textColor: 1, entityColor: 1, dimensionFilterType: 'detail'
+      });
+      addDimV(g, baseY, baseY + height, baseX + width, baseX + width - 85, String(Math.round(height)), {
+        layer: 'Ölçüler - Detay', scale: dimScale, color: 1, textColor: 1, entityColor: 1, dimensionFilterType: 'detail'
+      });
+    });
+  }
+
   function drawFrontView(g, d) {
-    const postXs = postCenterXs(d);
+    const postXs = Array.isArray(d.postCenterXs) ? d.postCenterXs : postCenterXs(d);
     const rectStartY = d.commonFrontRectStartY;
     const onDikmeH = Math.max(1, d.frontHeight - K.onPostHeightCorrection - d.parapetHeight);
     const altBlokY = rectStartY - d.frontHeight + K.altBlockCorrection + d.parapetHeight;
@@ -999,6 +1400,8 @@
         g.entities.push({ type: 'interaction', kind: 'postEditor', x: x - 62, y: hitBottomY, w: 124, h: hitTopY - hitBottomY, data: { postIndex: idx, postCount: d.postCount, totalRayCount: d.totalRayCount, placementMode: d.manualPostPlacementMode || 'standard' } });
       }
     });
+    drawSlidingPlacements(g, d, postXs, rectStartY, onDikmeH);
+    drawGuillotinePlacements(g, d, postXs, rectStartY, onDikmeH);
     addDimH(g, K.systemStartX, K.systemStartX + d.nominalWidth, rectStartY - d.frontHeight - 80, rectStartY - d.frontHeight - 350, `GENİŞLİK ${formatMm(d.nominalWidth)}`, { layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_total_width', ruleKey: 'front_total_width', field: 'width', index: 0, label: 'Ön Genişlik', view: 'Front', relatedZoneId: 'front_total_width_zone' } });
     if (!(yes(d.parapet) && d.parapetHeight > 0)) {
       addDimV(g, rectStartY, rectStartY - d.frontHeight, K.systemStartX - 100, K.systemStartX - 360, `ÖN ${formatMm(d.frontHeight)}`, { layer: 'Ölçüler - Ön Görünüş', edit: { dimId: 'front_height', ruleKey: 'front_front_height', field: 'frontHeight', index: 0, label: 'Ön H', view: 'Front', relatedZoneId: 'front_height_zone' } });
@@ -1034,7 +1437,11 @@
   }
 
   function triangleDogramaKapaliCiz(g, pA, pB, pC, pD, layer = 'TRIANGLE') {
-    g.poly([pA, pB, pC, pD], true, layer);
+    const ent = g.poly([pA, pB, pC, pD], true, layer);
+    // V8.4.3: Önizleme ve DXF aynı üçgen doğrama rengini kullanır.
+    ent.color = 130;
+    ent.trueColor = 0x00BF00;
+    return ent;
   }
 
   function triangleDogramaUrunCiz(g, baseX, baseY, AB, BC, AD, slope, off = 41.7, memberW = 41.7) {
@@ -1133,7 +1540,7 @@
     // V8.2.1: Yan görünüşte çatı kayıt profili ve ray çekici araba setleri çizilmez.
     if (K.showDimensions !== false) {
       const anglePt = rotatePoint(startRayX + rayLen / 2, startRayY, arkaMekX, arkaMekY, aci);
-      const angleText = g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}`, 170, 'TEXT', 'center');
+      const angleText = g.text(anglePt[0], anglePt[1] + 140, `${formatDeg(Math.abs(aci) * 180 / Math.PI)}  POZ ${p.index + 1}`, 170, 'TEXT', 'center');
       angleText.keepReadableOnMirror = true;
       angleText.dimensionFilterType = 'main';
     }
@@ -1448,8 +1855,13 @@
     // TEXT entity baseline verdiği için ilk satır baseline'ı optik merkeze göre ayarlanır.
     const firstBaseline = centerY + textBlockH / 2 - fit.h * 0.72;
     const textX = x + padX;
+    const mtextCellWidth = Math.max(1, w - 2 * padX);
     fit.lines.forEach((line, i) => {
-      g.text(textX, firstBaseline - i * lineStep, line, fit.h, layer, 'left');
+      const ent = g.text(textX, firstBaseline - i * lineStep, line, fit.h, layer, 'left');
+      // Modern DXF'te MTEXT genişliği hücrenin kullanılabilir genişliği kadar olsun.
+      // Böylece CAD tarafında beklenmeyen otomatik satır kırımları oluşmaz.
+      ent.width = mtextCellWidth;
+      ent.cellWidth = mtextCellWidth;
     });
   }
 
@@ -1681,7 +2093,7 @@
           canAddProfile: !!(edit.canAddSameProfile || edit.canAddDifferentProfile),
           canPlaceProduct: !!edit.canPlaceProduct,
           allowedProfiles: edit.canAddSameProfile ? ['same_post', 'custom_profile'] : (edit.canAddDifferentProfile ? ['custom_profile'] : []),
-          allowedProducts: edit.canPlaceProduct ? ['sliding_glass', 'zipper', 'fixed_glass'] : [],
+          allowedProducts: edit.canPlaceProduct ? ['sliding_glass', 'guillotine_glass'] : [],
           placedProduct: null
         };
       }
@@ -1695,6 +2107,47 @@
     };
   }
 
+  function applyByBlockPresentation(entities) {
+    (entities || []).forEach(e => {
+      if (!e) return;
+      if (e.type === 'text' || e.type === 'mtext') {
+        // Normal yazılar ve açı yazısı BYBLOCK. Ölçü entity grafiklerine dokunulmaz.
+        e.color = 0;
+        delete e.trueColor;
+        delete e.rgb;
+        delete e.hexColor;
+        return;
+      }
+      if ((e.type === 'line' || e.type === 'polyline' || e.type === 'circle') && ['OUTLINE', 'TABLE', 'TITLE'].includes(e.layer)) {
+        e.color = 0;
+        delete e.trueColor;
+        delete e.rgb;
+        delete e.hexColor;
+      }
+    });
+    return entities;
+  }
+
+  function byBlockBlockLibrary(blocks) {
+    const out = {};
+    Object.entries(blocks || {}).forEach(([name, block]) => {
+      out[name] = {
+        ...block,
+        entities: (block.entities || []).map(e => {
+          const next = { ...e };
+          if (next.type === 'text' || next.type === 'mtext') {
+            next.color = 0;
+            delete next.trueColor;
+            delete next.rgb;
+            delete next.hexColor;
+          }
+          return next;
+        })
+      };
+    });
+    return out;
+  }
+
   function buildDrawing(raw) {
     const d = normalizeInput(raw);
     const g = makeEntitySink();
@@ -1706,8 +2159,10 @@
     drawFrame(g, d);
     drawUpperOptionsTable(g, d);
     drawBottomTitleTable(g, d);
+    applyByBlockPresentation(g.entities);
     const smart = buildSmartMetadata(g.entities, d);
-    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks: { ...getBlocks(), ...customHatchBlocks() }, smartDimensions: smart.dimensions, zones: smart.zones, profileInstances: smart.profileInstances, dimensionEditRules: DIMENSION_EDIT_RULES, dimensionActions: DIMENSION_ACTIONS, profileLibrary: PROFILE_LIBRARY, productLibrary: PRODUCT_LIBRARY };
+    const blocks = byBlockBlockLibrary({ ...getBlocks(), ...customHatchBlocks(), ...slidingBlocksFor(d), ...guillotineBlocksFor(d) });
+    return { input: d, entities: g.entities, layers: Object.keys(LAYER_STYLE), layerStyle: LAYER_STYLE, blocks, smartDimensions: smart.dimensions, zones: smart.zones, profileInstances: smart.profileInstances, dimensionEditRules: DIMENSION_EDIT_RULES, dimensionActions: DIMENSION_ACTIONS, profileLibrary: PROFILE_LIBRARY, productLibrary: PRODUCT_LIBRARY };
   }
 
   function entityBounds(e, blockLib) {
@@ -1742,6 +2197,7 @@
     10: '#ff0000',
     42: '#ffbf00',
     130: '#00bf00',
+    167: '#293189',
     256: null
   };
 
@@ -1751,7 +2207,18 @@
     return ACI_HEX[n] || fallback;
   }
 
+  function entityTrueColorHex(e) {
+    if (!e) return null;
+    if (typeof e.hexColor === 'string' && /^#?[0-9a-f]{6}$/i.test(e.hexColor)) return e.hexColor.startsWith('#') ? e.hexColor : `#${e.hexColor}`;
+    const tc = Number(e.trueColor);
+    if (Number.isFinite(tc) && tc >= 0) return `#${(tc & 0xFFFFFF).toString(16).padStart(6, '0')}`;
+    if (Array.isArray(e.rgb) && e.rgb.length >= 3) return `#${e.rgb.slice(0,3).map(v => Math.max(0, Math.min(255, Number(v)||0)).toString(16).padStart(2,'0')).join('')}`;
+    return null;
+  }
+
   function entityStroke(e, st) {
+    const trueHex = entityTrueColorHex(e);
+    if (trueHex) return trueHex;
     return aciColorToHex(e && e.color, (st && st.stroke) || '#000000');
   }
 
@@ -1769,6 +2236,96 @@
     return pts.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
   }
 
+  function previewMTextLines(e) {
+    const explicit = String(e.value || '').split('\\P');
+    const width = Math.max(1, Number(e.width) || 1000);
+    const height = Math.max(1, Number(e.height) || 80);
+    const maxChars = Math.max(1, Math.floor(width / (height * 0.62)));
+    const result = [];
+    explicit.forEach(part => {
+      const words = String(part).split(/\s+/).filter(Boolean);
+      if (!words.length) { result.push(''); return; }
+      let line = '';
+      words.forEach(word => {
+        const candidate = line ? `${line} ${word}` : word;
+        if (candidate.length <= maxChars || !line) line = candidate;
+        else { result.push(line); line = word; }
+      });
+      result.push(line);
+    });
+    return result.length ? result : [''];
+  }
+
+
+  // V8.4.5: Önizleme/PDF taramaları DXF HATCH ile aynı model-uzayı ölçeğinde üretilir.
+  // Önceki 1000x1000 blok yaklaşımı bölgeye non-uniform ölçeklendiği için tuğla ve kumaş
+  // desenleri sınır dikdörtgeninin en/boy oranına göre esniyor, DXF ile uyuşmuyordu.
+  function legacyHatchInfo(entity) {
+    if (!entity || entity.type !== 'insert') return null;
+    const name = String(entity.name || '');
+    const isWall = name === 'PULUMUR WALL BRICK SAFE HATCH';
+    const isFabric = name === 'PULUMUR TRAPEZ SAFE HATCH';
+    if (!isWall && !isFabric) return null;
+    const sxv = Math.abs(Number(entity.scaleX) || 1);
+    const syv = Number(entity.scaleY) || 1;
+    const x1 = Number(entity.x) || 0;
+    const y1 = Number(entity.y) || 0;
+    const x2 = x1 + (entity.mirrorX ? -1 : 1) * 1000 * sxv;
+    const y2 = y1 + 1000 * syv;
+    return {
+      kind: isWall ? 'brick' : 'fabric',
+      minX: Math.min(x1, x2), maxX: Math.max(x1, x2),
+      minY: Math.min(y1, y2), maxY: Math.max(y1, y2)
+    };
+  }
+
+  function hatchSegmentsForRect(info) {
+    if (!info) return [];
+    const minX = Number(info.minX) || 0;
+    const maxX = Number(info.maxX) || 0;
+    const minY = Number(info.minY) || 0;
+    const maxY = Number(info.maxY) || 0;
+    if (!(maxX > minX) || !(maxY > minY)) return [];
+    const segments = [];
+    const eps = 1e-7;
+    if (info.kind === 'fabric') {
+      const repeat = 150;
+      const pairOffset = 42;
+      const startN = Math.floor((minX - pairOffset) / repeat) - 1;
+      const endN = Math.ceil(maxX / repeat) + 1;
+      for (let n = startN; n <= endN; n += 1) {
+        const xa = n * repeat;
+        const xb = xa + pairOffset;
+        if (xa >= minX - eps && xa <= maxX + eps) segments.push({ x1: xa, y1: minY, x2: xa, y2: maxY });
+        if (xb >= minX - eps && xb <= maxX + eps) segments.push({ x1: xb, y1: minY, x2: xb, y2: maxY });
+      }
+      return segments;
+    }
+
+    const course = 190.5;
+    const brickWidth = 381;
+    const firstCourse = Math.ceil((minY - eps) / course);
+    const lastCourse = Math.floor((maxY + eps) / course);
+    for (let n = firstCourse; n <= lastCourse; n += 1) {
+      const y = n * course;
+      if (y > minY + eps && y < maxY - eps) segments.push({ x1: minX, y1: y, x2: maxX, y2: y });
+    }
+    const firstRow = Math.floor(minY / course);
+    const lastRow = Math.ceil(maxY / course) - 1;
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      const y1 = Math.max(minY, row * course);
+      const y2 = Math.min(maxY, (row + 1) * course);
+      if (!(y2 > y1 + eps)) continue;
+      const parity = ((row % 2) + 2) % 2;
+      const offset = parity ? course : 0;
+      let x = Math.ceil((minX - offset - eps) / brickWidth) * brickWidth + offset;
+      for (; x <= maxX + eps; x += brickWidth) {
+        if (x > minX + eps && x < maxX - eps) segments.push({ x1: x, y1, x2: x, y2 });
+      }
+    }
+    return segments;
+  }
+
   function renderSvg(drawing) {
     const ents = drawing.entities;
     const blockLib = drawing.blocks || { ...getBlocks(), ...customHatchBlocks() };
@@ -1781,6 +2338,7 @@
     const sx = x => x - minX;
     const sy = y => maxY - y;
     const parts = [];
+    let hatchSeq = 0;
     parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" preserveAspectRatio="xMidYMid meet">`);
     parts.push('<rect x="0" y="0" width="100%" height="100%" fill="white"/>');
     for (const e of ents) {
@@ -1788,6 +2346,19 @@
       const stroke = entityStroke(e, st);
       const sw = previewStrokeWidth(st.width);
       const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
+      const hatchInfo = legacyHatchInfo(e);
+      if (hatchInfo) {
+        const clipId = `pulumur-hatch-${hatchSeq++}`;
+        const rx = sx(hatchInfo.minX);
+        const ry = sy(hatchInfo.maxY);
+        const rw = Math.max(0, hatchInfo.maxX - hatchInfo.minX);
+        const rh = Math.max(0, hatchInfo.maxY - hatchInfo.minY);
+        const hatchSw = hatchInfo.kind === 'brick' ? 0.52 : 0.58;
+        parts.push(`<defs><clipPath id="${clipId}"><rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"/></clipPath></defs>`);
+        const hatchLines = hatchSegmentsForRect(hatchInfo).map(seg => `<line x1="${sx(seg.x1)}" y1="${sy(seg.y1)}" x2="${sx(seg.x2)}" y2="${sy(seg.y2)}" vector-effect="non-scaling-stroke"/>`).join('');
+        parts.push(`<g clip-path="url(#${clipId})" stroke="${stroke}" stroke-width="${hatchSw}" fill="none">${hatchLines}</g>`);
+        continue;
+      }
       if (e.type === 'line') parts.push(`<line x1="${sx(e.x1)}" y1="${sy(e.y1)}" x2="${sx(e.x2)}" y2="${sy(e.y2)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       else if (e.type === 'polyline') {
         const points = svgPointString(e.points, e.closed, sx, sy);
@@ -1800,10 +2371,11 @@
         const dimAttr = dimType ? ` data-dimension-type="${escXml(dimType)}"` : '';
         parts.push(`<text class="${cls}"${dimAttr} x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${escXml(e.value)}</text>`);
       } else if (e.type === 'mtext') {
-        const lines = String(e.value || '').split('\\P');
+        const lines = previewMTextLines(e);
+        const anchor = e.align === 'center' ? 'middle' : (e.align === 'right' ? 'end' : 'start');
         const rot = e.rotation ? ` transform="rotate(${-e.rotation} ${sx(e.x)} ${sy(e.y)})"` : '';
-        const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*1.15}">${escXml(ln)}</tspan>`).join('');
-        parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" fill="${stroke}"${rot}>${tspans}</text>`);
+        const tspans = lines.map((ln, ii) => `<tspan x="${sx(e.x)}" dy="${ii===0?0:e.height*(e.lineSpacing||1.15)}">${escXml(ln)}</tspan>`).join('');
+        parts.push(`<text class="dxf-text" x="${sx(e.x)}" y="${sy(e.y)}" font-size="${e.height}" text-anchor="${anchor}" fill="${stroke}"${rot}>${tspans}</text>`);
       } else if (e.type === 'circle') parts.push(`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="${Math.abs(e.r)}" stroke="${stroke}" stroke-width="${sw}"${dash} fill="none"/>`);
       else if (e.type === 'interaction') {
         const data = e.data || {};
@@ -1832,6 +2404,8 @@
       }
       else if (e.type === 'dimension') {
         const edit = e.edit || null;
+        const filterType = String(e.dimensionFilterType || (edit && edit.dimensionType) || '').toLowerCase();
+        const plainGroup = !edit && !!filterType;
         if (edit) {
           const attrs = [
             ['class', 'editable-dimension'],
@@ -1855,6 +2429,8 @@
             ['data-layer', e.layer || 'DIM']
           ].map(([k,v]) => `${k}="${escXml(v)}"`).join(' ');
           parts.push(`<g ${attrs}>`);
+        } else if (plainGroup) {
+          parts.push(`<g class="preview-dimension-plain" data-dimension-type="${escXml(filterType)}">`);
         }
         (e.graphics || []).forEach(ge => {
           const gst = drawing.layerStyle[ge.layer] || drawing.layerStyle.DIM;
@@ -1877,14 +2453,20 @@
           const hw = Math.max(40, Math.abs(eb[2] - eb[0]) + hitPad * 2);
           const hh = Math.max(40, Math.abs(eb[3] - eb[1]) + hitPad * 2);
           parts.push(`<rect class="editable-dimension-hit" x="${hx}" y="${hy}" width="${hw}" height="${hh}" fill="transparent" stroke="none" pointer-events="all"><title>${escXml(edit.editable === false ? (edit.passiveReason || 'Bilgi amaçlı ölçü') : ((edit.label || 'Ölçü') + ' değiştir'))}</title></rect></g>`);
+        } else if (plainGroup) {
+          parts.push('</g>');
         }
       } else if (e.type === 'insert') {
         const block = blockLib[e.name];
         if (block) {
           const group = [];
           (block.entities || []).forEach(be => {
-            const bst = drawing.layerStyle[e.layer] || drawing.layerStyle[be.layer] || drawing.layerStyle.BLOCKREF;
-            const bstroke = entityStroke(be, { ...bst, stroke: entityStroke(e, bst) });
+            const insertStyle = drawing.layerStyle[e.layer] || drawing.layerStyle.BLOCKREF;
+            const ownStyle = drawing.layerStyle[be.layer] || insertStyle;
+            const byBlock = Number(be.color) === 0;
+            const bst = byBlock ? insertStyle : ownStyle;
+            const inheritedStroke = entityStroke(e, insertStyle);
+            const bstroke = byBlock ? inheritedStroke : entityStroke(be, ownStyle);
             const bsw = previewStrokeWidth(bst.width || 2, 0.24);
             if (be.type === 'line') {
               const p1 = transformLocalPoint(be.x1, be.y1, e), p2 = transformLocalPoint(be.x2, be.y2, e);
@@ -1896,6 +2478,16 @@
               const p = transformLocalPoint(be.x, be.y, e);
               const rr = Math.abs(be.r * ((Number(e.scaleX || 1) + Number(e.scaleY || 1)) / 2));
               group.push(`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="${rr}" stroke="${bstroke}" stroke-width="${bsw}" fill="none"/>`);
+            } else if (be.type === 'text' || be.type === 'mtext') {
+              const p = transformLocalPoint(be.x || 0, be.y || 0, e);
+              const anchor = be.align === 'center' ? 'middle' : (be.align === 'right' ? 'end' : 'start');
+              const rotDeg = Number(be.rotation || 0) + Number(e.rotation || 0);
+              const rot = rotDeg ? ` transform="rotate(${-rotDeg} ${sx(p[0])} ${sy(p[1])})"` : '';
+              const scaleAvg = ((Math.abs(Number(e.scaleX || 1)) + Math.abs(Number(e.scaleY || 1))) / 2);
+              const h = Math.abs((Number(be.height) || 24) * scaleAvg);
+              const lines = be.type === 'mtext' ? previewMTextLines(be) : [String(be.value || '')];
+              const tspans = lines.map((ln, ii) => `<tspan x="${sx(p[0])}" dy="${ii===0?0:h*(be.lineSpacing||1.15)}">${escXml(ln)}</tspan>`).join('');
+              group.push(`<text class="dxf-text" x="${sx(p[0])}" y="${sy(p[1])}" font-size="${h}" text-anchor="${anchor}" fill="${bstroke}"${rot}>${tspans}</text>`);
             }
           });
           parts.push(`<g data-block="${escXml(e.name)}">${group.join('')}</g>`);
@@ -1923,6 +2515,11 @@
         return;
       }
       if (e.type === 'insert') {
+        const hatchInfo = legacyHatchInfo(e);
+        if (hatchInfo) {
+          hatchSegmentsForRect(hatchInfo).forEach(seg => push({ type: 'line', layer, color: e.color, x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
+          return;
+        }
         const block = blockLib[e.name];
         if (!block) {
           const w = Math.abs(e.previewW || 120), h = Math.abs(e.previewH || 80);

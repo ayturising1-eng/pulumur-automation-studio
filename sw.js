@@ -1,13 +1,14 @@
-const CACHE_NAME = 'pulumur-pwa-v8_2_66';
+const CACHE_NAME = 'pulumur-pwa-v8_4_5';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './style.css?v=8.2.67',
-  './app.js?v=8.2.67',
-  './peri01ExcelBridge.js?v=8.2.67',
-  './peri01Geometry.js?v=8.2.67',
-  './dxfEngine.js?v=8.2.67',
-  './blocks/filteredBlocks.js?v=8.2.67',
+  './style.css?v=8.4.5',
+  './app.js?v=8.4.5',
+  './peri01ExcelBridge.js?v=8.4.5',
+  './peri01Geometry.js?v=8.4.5',
+  './modernDxfTemplate.js?v=8.4.5',
+  './dxfModernEngine.js?v=8.4.5',
+  './blocks/filteredBlocks.js?v=8.4.5',
   './assets/plmr-logo-header.png',
   './icons/icon-192.png',
   './icons/icon-512.png',

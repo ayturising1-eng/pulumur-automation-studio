@@ -32,6 +32,11 @@
   let manualPostPlacementMode = 'standard';
   let glassTrackProfileState = { mode: 'standard', en: 100, boy: 100, et: 2 };
   let glassSupportProfileState = { left: null, right: null };
+  let customFrontPostCenters = null;
+  let slidingPlacements = [];
+  let pendingSlidingPlacementMeta = null;
+  let guillotinePlacements = [];
+  let pendingGuillotinePlacementMeta = null;
   const EXCEL_COMBO_OPTIONS = {
     motor: ['-', 'RISING MOTOR', 'SOMFY RTS', 'SOMFY IO'],
     fabric: [
@@ -75,10 +80,7 @@
   };
   const SMART_PRODUCT_OPTIONS = [
     { id: 'sliding_glass', tr: 'Sürme Cam', en: 'Sliding Glass' },
-    { id: 'guillotine_glass', tr: 'Giyotin / Yürüyen Sistem', en: 'Guillotine System' },
-    { id: 'zipper', tr: 'Zipper Perde', en: 'Zipper Screen' },
-    { id: 'fixed_glass', tr: 'Sabit Cam', en: 'Fixed Glass' },
-    { id: 'door', tr: 'Kapı', en: 'Door' }
+    { id: 'guillotine_glass', tr: 'Giyotin Cam', en: 'Guillotine' }
   ];
   const SMART_PROFILE_OPTIONS = [
     { id: 'same_post', tr: 'Aynı dikme profili', en: 'Same post profile', side: 100, top: 100 },
@@ -127,8 +129,8 @@
       labelRayCount: 'Ray Sayısı <b>Bir Sistem</b>', labelPostCount: 'Dikme Sayısı <b>Tüm Sistem</b>',
       project_customer: 'Müşteri', project_project: 'Proje', project_version: 'Versiyon', project_drawnBy: 'Çizen', project_date: 'Tarih',
       options_parapet: 'Parapet', options_parapetHeight: 'Parapet H <b>*(mm)</b>', options_glassTrack: 'Cam Kaydı',
-      options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
-      options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
+      options_structureColor: 'Taşıyıcı Rengi', options_fabric: 'Kumaş', options_fabricProfiles: 'Kumaş Profilleri',
+      options_motor: 'Motor', options_remote: 'Kumanda', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Ekstralar / Notlar',
       extra_triangleJoinery: 'Üçgen Doğrama', extra_waterStandard: 'Su Çıkışı Standart mı?', quickTestsHead: 'Hızlı Testler',
       previewTitle: 'Çizim Ön İzleme', previewBtn: 'Önizlemeyi Yenile', expandPreviewBtn: 'Önizlemeyi Büyüt', fitPreviewBtn: 'Çizimi Sığdır', shrinkPreviewBtn: 'Önizlemeyi Küçült', showMainDimsLabel: 'Ana ölçüleri göster', showAllDimsLabel: 'Tüm ölçüleri göster',
       pdfBtn: 'PDF İndir', generateBtn: 'DXF İndir', resetBtn: 'Değerleri Resetle', calcBtn: 'Pülümür Hesaplayıcı',
@@ -151,7 +153,7 @@
       labelRearHeight: 'Rear H', labelFrontHeight: 'Front H <em>Gutter Bottom</em>',
       labelRayCount: 'Rail Count <b>Per System</b>', labelPostCount: 'Post Count <b>All Systems</b>',
       project_customer: 'Customer', project_project: 'Project', project_version: 'Version', project_drawnBy: 'Drawn By', project_date: 'Date',
-      options_parapet: 'Parapet', options_parapetHeight: 'Parapet H <b>*(mm)</b>', options_glassTrack: 'Glass Gable',
+      options_parapet: 'Parapet', options_parapetHeight: 'Parapet H <b>*(mm)</b>', options_glassTrack: 'Glass Track',
       options_structureColor: 'Structure Color', options_fabric: 'Fabric', options_fabricProfiles: 'Fabric Profiles',
       options_motor: 'Motor', options_remote: 'Remote', options_led: 'LED', options_dimmer: 'Dimmer', options_extras: 'Extras / Notes',
       extra_triangleJoinery: 'Triangle Joinery', extra_waterStandard: 'Standard Water Outlet?', quickTestsHead: 'Quick Tests',
@@ -168,6 +170,96 @@
       }
     }
   };
+
+
+  const SLIDING_UI_TEXT = {
+    tr: {
+      title: 'Sürme Detayları', productSeries: 'Ürün Serisi', type: 'Tip', openingType: 'Açılım Tipi',
+      glassThickness: 'Cam Kalınlığı', glassColor: 'Cam Rengi', aSeries: 'A Serisi', kSeries: 'K Serisi',
+      withThreshold: 'Eşikli', withoutThreshold: 'Eşiksiz', sideOpening: 'Yana Açılım', centerOpening: 'Ortadan Açılım',
+      mm8: '8 mm', mm10: '10 mm', insulatedGlass: 'Yalıtımlı Cam', transparent: 'Şeffaf', grey: 'Gri',
+      bronze: 'Bronz', lowEGlass: 'Low-e Cam', other: 'Diğer', otherPlaceholder: 'Özel cam rengini yazın',
+      pozNo: 'Poz No', width: 'Genişlik *', height: 'Yükseklik *', panelCount: 'Panel Sayısı',
+      cancel: 'İptal', confirm: 'Tamam', close: 'Kapat',
+      otherRequired: 'Diğer seçildiğinde cam rengini yazmalısın.',
+      placed: (poz, left, right) => `${poz} sürme cam, Dikme ${left} ile Dikme ${right} arasına yerleştirildi.`
+    },
+    en: {
+      title: 'Sliding Details', productSeries: 'Product Series', type: 'Type', openingType: 'Opening Type',
+      glassThickness: 'Glass Thickness', glassColor: 'Glass Color', aSeries: 'A Series', kSeries: 'K Series',
+      withThreshold: 'With Threshold', withoutThreshold: 'Without Threshold', sideOpening: 'Side Opening', centerOpening: 'Center Opening',
+      mm8: '8 mm', mm10: '10 mm', insulatedGlass: 'Insulated Glass', transparent: 'Transparent', grey: 'Grey',
+      bronze: 'Bronze', lowEGlass: 'Low-e Glass', other: 'Other', otherPlaceholder: 'Enter custom glass color',
+      pozNo: 'Position No.', width: 'Width *', height: 'Height *', panelCount: 'Panel Count',
+      cancel: 'Cancel', confirm: 'Confirm', close: 'Close',
+      otherRequired: 'Enter a glass color when Other is selected.',
+      placed: (poz, left, right) => `${poz} sliding glass was placed between Post ${left} and Post ${right}.`
+    }
+  };
+
+
+  const GUILLOTINE_UI_TEXT = {
+    tr: {
+      title: 'Giyotin Detayları', productSeries: 'Ürün Serisi', type: 'Tip', mechanism: 'Mekanizma',
+      glassThickness: 'Cam Kalınlığı', glassColor: 'Cam Rengi', panelCount: 'Panel Tipi',
+      motorDirection: 'Motor Yönü', view: 'Görünüş', motorType: 'Motor Tipi', remoteControl: 'Kumanda',
+      aSeries: 'A Serisi', kSeries: 'K Serisi', standard: 'Standart', cleanable: 'Temizlenebilir',
+      upwardCollecting: 'Yukarı Toplanan', chain: 'Zincir', belt: 'Kayış', mm8: '8 mm',
+      insulatedGlass: 'Yalıtımlı Cam', transparent: 'Şeffaf', grey: 'Gri', bronze: 'Bronz',
+      lowEGlass: 'Low-e Cam', other: 'Diğer', otherPlaceholder: 'Özel cam rengini yazın',
+      panel11: '1+1', panel12: '1+2', right: 'Sağ', left: 'Sol', insideView: 'İç Görünüş',
+      outsideView: 'Dış Görünüş', somfyRts: 'Somfy RTS', somfyIo: 'Somfy IO', rising: 'Rising',
+      ch1: '1 Kanal', ch2: '2 Kanal', ch4: '4 Kanal', ch6: '6 Kanal', ch16: '16 Kanal', ch40: '40 Kanal',
+      pozNo: 'Poz No', width: 'Genişlik *', height: 'Yükseklik *', cancel: 'İptal', confirm: 'Tamam', close: 'Kapat',
+      otherRequired: 'Diğer seçildiğinde cam rengini yazmalısın.',
+      placed: (poz, leftPost, rightPost) => `${poz} giyotin cam, Dikme ${leftPost} ile Dikme ${rightPost} arasına yerleştirildi.`
+    },
+    en: {
+      title: 'Guillotine Details', productSeries: 'Product Series', type: 'Type', mechanism: 'Mechanism',
+      glassThickness: 'Glass Thickness', glassColor: 'Glass Color', panelCount: 'Panel Type',
+      motorDirection: 'Motor Direction', view: 'View', motorType: 'Motor Type', remoteControl: 'Remote Control',
+      aSeries: 'A Series', kSeries: 'K Series', standard: 'Standard', cleanable: 'Cleanable',
+      upwardCollecting: 'Upward Collecting', chain: 'Chain', belt: 'Belt', mm8: '8 mm',
+      insulatedGlass: 'Insulated Glass', transparent: 'Transparent', grey: 'Grey', bronze: 'Bronze',
+      lowEGlass: 'Low-e Glass', other: 'Other', otherPlaceholder: 'Enter custom glass color',
+      panel11: '1+1', panel12: '1+2', right: 'Right', left: 'Left', insideView: 'Inside View',
+      outsideView: 'Outside View', somfyRts: 'Somfy RTS', somfyIo: 'Somfy IO', rising: 'Rising',
+      ch1: '1 Channel', ch2: '2 Channels', ch4: '4 Channels', ch6: '6 Channels', ch16: '16 Channels', ch40: '40 Channels',
+      pozNo: 'Position No.', width: 'Width *', height: 'Height *', cancel: 'Cancel', confirm: 'Confirm', close: 'Close',
+      otherRequired: 'Enter a glass color when Other is selected.',
+      placed: (poz, leftPost, rightPost) => `${poz} guillotine was placed between Post ${leftPost} and Post ${rightPost}.`
+    }
+  };
+
+  function translateGuillotineDetailsOverlay(overlay = $('guillotineDetailsOverlay')) {
+    if (!overlay) return;
+    const txt = GUILLOTINE_UI_TEXT[currentLanguage] || GUILLOTINE_UI_TEXT.tr;
+    overlay.querySelectorAll('[data-guillotine-text]').forEach(el => {
+      const key = el.dataset.guillotineText;
+      if (Object.prototype.hasOwnProperty.call(txt, key) && typeof txt[key] === 'string') el.textContent = txt[key];
+    });
+    const otherInput = overlay.querySelector('#guillotineOtherColor');
+    if (otherInput) otherInput.placeholder = txt.otherPlaceholder;
+    const closeButton = overlay.querySelector('#guillotineDetailsClose');
+    if (closeButton) closeButton.setAttribute('aria-label', txt.close);
+    const form = overlay.querySelector('#guillotineDetailsForm');
+    if (form) form.setAttribute('aria-label', txt.title);
+  }
+
+  function translateSlidingDetailsOverlay(overlay = $('slidingDetailsOverlay')) {
+    if (!overlay) return;
+    const txt = SLIDING_UI_TEXT[currentLanguage] || SLIDING_UI_TEXT.tr;
+    overlay.querySelectorAll('[data-sliding-text]').forEach(el => {
+      const key = el.dataset.slidingText;
+      if (Object.prototype.hasOwnProperty.call(txt, key) && typeof txt[key] === 'string') el.textContent = txt[key];
+    });
+    const otherInput = overlay.querySelector('#slidingOtherColor');
+    if (otherInput) otherInput.placeholder = txt.otherPlaceholder;
+    const closeButton = overlay.querySelector('#slidingDetailsClose');
+    if (closeButton) closeButton.setAttribute('aria-label', txt.close);
+    const form = overlay.querySelector('#slidingDetailsForm');
+    if (form) form.setAttribute('aria-label', txt.title);
+  }
 
   const QUICK_TEST_PRESETS = [
     { name: 'Test 1', title: '1 adet · 2 ray · aynı ölçüler · otomatik dikme', values: { customer: 'TEST', project: 'TEST 1', systemCount: '1', width: '4000', opening: '4500', rearHeight: '3200', frontHeight: '2600' } },
@@ -274,6 +366,8 @@
     if (helpClose) helpClose.textContent = txt.helpCloseBtn;
     Object.entries(txt.placeholders).forEach(([id,val]) => { if ($(id)) $(id).placeholder = val; });
     setBooleanSelectTexts(currentLanguage);
+    translateSlidingDetailsOverlay();
+    translateGuillotineDetailsOverlay();
     try { localStorage.setItem('pulumur_lang', currentLanguage); } catch (e) {}
   }
 
@@ -327,7 +421,7 @@
     }
 
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.2.67').catch(() => {}), { once: true });
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8.4.5').catch(() => {}), { once: true });
     }
   }
 
@@ -344,6 +438,11 @@
     manualPostPlacementMode = 'standard';
     glassTrackProfileState = { mode: 'standard', en: 100, boy: 100, et: 2 };
     glassSupportProfileState = { left: null, right: null };
+    customFrontPostCenters = null;
+    slidingPlacements = [];
+    pendingSlidingPlacementMeta = null;
+    guillotinePlacements = [];
+    pendingGuillotinePlacementMeta = null;
     applyAutoRayPost(true);
   }
 
@@ -388,7 +487,10 @@
       __glassTrackSupportProfiles: {
         left: sanitizeOptionalGlassTrackProfile(glassSupportProfileState.left),
         right: sanitizeOptionalGlassTrackProfile(glassSupportProfileState.right)
-      }
+      },
+      __frontPostCenters: Array.isArray(customFrontPostCenters) ? customFrontPostCenters.slice() : null,
+      __slidingPlacements: slidingPlacements.map(item => ({ ...item })),
+      __guillotinePlacements: guillotinePlacements.map(item => ({ ...item }))
     });
   }
 
@@ -445,7 +547,9 @@
       renderPreview(drawing, resetZoom);
       applyPreviewDimensionFilter();
       const d = drawing.input;
-      statusText.textContent = `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan. V66: Ön/üst/yan görünüşte akıllı ölçülere tıklayıp ölçü, zone, profil/ürün altyapısını yönetebilirsin.`;
+      statusText.textContent = currentLanguage === 'en'
+        ? `Ready: Page1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm projection, ${d.systems.map(s => s.rayCount).join(';')} rails, ${d.postCount} posts, angle ${window.PulumurGeometry.formatDeg(d.angle)}. Use the mouse wheel to zoom and drag with the left button to pan. V8.4.5: wall/fabric hatch scale is identical in preview, PDF and DXF; zoom extents and MESUT-MM remain active.`
+        : `Hazır: Sayfa1 B1=${d.sayfa1 ? d.sayfa1.B1_width : Math.round(d.width)} | ${Math.round(d.opening)} mm açılım, ${d.systems.map(s => s.rayCount).join(';')} ray, ${d.postCount} dikme, açı ${window.PulumurGeometry.formatDeg(d.angle)}. Tekerlek ile zoom, sol tuş basılı sürükle ile pan. V8.4.5: duvar/kumaş tarama ölçeği önizleme, PDF ve DXF'te aynıdır; zoom extents ve MESUT-MM aktiftir.`;
       return drawing;
     } catch (err) {
       const txt = UI_TEXT[currentLanguage] || UI_TEXT.tr;
@@ -703,6 +807,447 @@
     return map[view] || view || (isEn ? 'Drawing' : 'Çizim');
   }
 
+  function isFrontPostGapMeta(meta) {
+    return !!meta && meta.view === 'Front' && /^front_post_gap_\d+$/i.test(String(meta.dimId || ''));
+  }
+
+  function currentFrontPostCenters() {
+    const fromDrawing = lastDrawing && lastDrawing.input && Array.isArray(lastDrawing.input.postCenterXs)
+      ? lastDrawing.input.postCenterXs.map(Number)
+      : [];
+    if (Array.isArray(customFrontPostCenters) && customFrontPostCenters.length === fromDrawing.length) {
+      return customFrontPostCenters.map(Number);
+    }
+    return fromDrawing;
+  }
+
+  function nextSlidingPozNo() {
+    const used = new Set(slidingPlacements.map(item => String(item.pozNo || '').toUpperCase()));
+    let n = 1;
+    while (used.has(`S${String(n).padStart(2, '0')}`)) n += 1;
+    return `S${String(n).padStart(2, '0')}`;
+  }
+
+  function slidingPanelCount(width, openingType) {
+    let count = Math.max(2, Math.ceil(Math.max(1, Number(width) || 1) / 1200));
+    if (String(openingType || '').toUpperCase() === 'CENTER OPENING') {
+      count = Math.max(4, count);
+      if (count % 2 !== 0) count += 1;
+    }
+    return count;
+  }
+
+  function resizeFrontPostGap(meta, targetGap) {
+    const centers = currentFrontPostCenters();
+    const gapIndex = Math.max(0, Number(meta.index) || 0);
+    if (centers.length < 3) {
+      throw new Error(currentLanguage === 'en' ? 'The gap cannot be resized in a two-post system because the first and last posts are fixed.' : 'İki dikmeli sistemde ilk ve son dikme sabit olduğu için aralık değiştirilemez.');
+    }
+    if (gapIndex >= centers.length - 1) throw new Error(currentLanguage === 'en' ? 'Post gap not found.' : 'Dikme aralığı bulunamadı.');
+    const minCenterDistance = 101;
+    const isLastGap = gapIndex === centers.length - 2;
+    if (isLastGap) {
+      const nextX = centers[gapIndex + 1] - 100 - targetGap;
+      if (gapIndex > 0 && nextX - centers[gapIndex - 1] < minCenterDistance) {
+        throw new Error(currentLanguage === 'en' ? 'The entered dimension overlaps the previous post.' : 'Girilen ölçü bir önceki dikmeyle çakışmaya neden oluyor.');
+      }
+      centers[gapIndex] = nextX;
+    } else {
+      const nextX = centers[gapIndex] + 100 + targetGap;
+      if (gapIndex + 2 < centers.length && centers[gapIndex + 2] - nextX < minCenterDistance) {
+        throw new Error(currentLanguage === 'en' ? 'The entered dimension overlaps the next post.' : 'Girilen ölçü bir sonraki dikmeyle çakışmaya neden oluyor.');
+      }
+      centers[gapIndex + 1] = nextX;
+    }
+    customFrontPostCenters = centers;
+    slidingPlacements = slidingPlacements.map(item => {
+      if (Number(item.gapIndex) !== gapIndex) return item;
+      const width = Math.max(1, targetGap - 5);
+      return { ...item, width, panelCount: slidingPanelCount(width, item.openingType) };
+    });
+    guillotinePlacements = guillotinePlacements.map(item => Number(item.gapIndex) === gapIndex
+      ? { ...item, width: Math.max(1, targetGap - 5) }
+      : item);
+  }
+
+  function ensureSlidingDetailsOverlay() {
+    let overlay = $('slidingDetailsOverlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'slidingDetailsOverlay';
+    overlay.className = 'dim-edit-overlay sliding-details-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <form id="slidingDetailsForm" class="dim-edit-card sliding-details-card">
+        <div class="sliding-modal-head">
+          <div class="sliding-modal-title"><span class="sliding-title-icon" aria-hidden="true"></span><span data-sliding-text="title">Sliding Details</span></div>
+          <button id="slidingDetailsClose" class="sliding-modal-close" type="button" aria-label="Close"><span aria-hidden="true"></span></button>
+        </div>
+        <div class="sliding-details-grid">
+          <section class="sliding-choice-group sliding-series-group" role="group" aria-labelledby="slidingSeriesTitle">
+            <div id="slidingSeriesTitle" class="sliding-group-title"><span class="sliding-group-icon icon-series" aria-hidden="true"></span><span data-sliding-text="productSeries">Product Series</span></div>
+            <label><input type="radio" name="slidingSeries" value="A SERIES" checked><span data-sliding-text="aSeries">A Series</span></label>
+            <label><input type="radio" name="slidingSeries" value="K SERIES"><span data-sliding-text="kSeries">K Series</span></label>
+          </section>
+          <section class="sliding-choice-group sliding-type-group" role="group" aria-labelledby="slidingTypeTitle">
+            <div id="slidingTypeTitle" class="sliding-group-title"><span class="sliding-group-icon icon-type" aria-hidden="true"></span><span data-sliding-text="type">Type</span></div>
+            <label><input type="radio" name="slidingType" value="WITH THRESHOLD" checked><span data-sliding-text="withThreshold">With Threshold</span></label>
+            <label><input type="radio" name="slidingType" value="WITHOUT THRESHOLD"><span data-sliding-text="withoutThreshold">Without Threshold</span></label>
+          </section>
+          <section class="sliding-choice-group sliding-opening-group" role="group" aria-labelledby="slidingOpeningTitle">
+            <div id="slidingOpeningTitle" class="sliding-group-title"><span class="sliding-group-icon icon-opening" aria-hidden="true"></span><span data-sliding-text="openingType">Opening Type</span></div>
+            <label><input type="radio" name="slidingOpening" value="SIDE OPENING" checked><span data-sliding-text="sideOpening">Side Opening</span></label>
+            <label><input type="radio" name="slidingOpening" value="CENTER OPENING"><span data-sliding-text="centerOpening">Center Opening</span></label>
+          </section>
+          <section class="sliding-choice-group sliding-thickness-group" role="group" aria-labelledby="slidingThicknessTitle">
+            <div id="slidingThicknessTitle" class="sliding-group-title"><span class="sliding-group-icon icon-thickness" aria-hidden="true"></span><span data-sliding-text="glassThickness">Glass Thickness</span></div>
+            <label><input type="radio" name="slidingThickness" value="8 MM"><span data-sliding-text="mm8">8 mm</span></label>
+            <label id="slidingThickness10Wrap"><input type="radio" name="slidingThickness" value="10 MM" checked><span data-sliding-text="mm10">10 mm</span></label>
+            <label><input type="radio" name="slidingThickness" value="INSULATED GLASS"><span data-sliding-text="insulatedGlass">Insulated Glass</span></label>
+          </section>
+          <section class="sliding-choice-group sliding-color-group" role="group" aria-labelledby="slidingColorTitle">
+            <div id="slidingColorTitle" class="sliding-group-title"><span class="sliding-group-icon icon-color" aria-hidden="true"></span><span data-sliding-text="glassColor">Glass Color</span></div>
+            <label><input type="radio" name="slidingColor" value="TRANSPARENT" checked><span data-sliding-text="transparent">Transparent</span></label>
+            <label><input type="radio" name="slidingColor" value="GREY"><span data-sliding-text="grey">Grey</span></label>
+            <label><input type="radio" name="slidingColor" value="BRONZE"><span data-sliding-text="bronze">Bronze</span></label>
+            <label id="slidingLowEWrap"><input type="radio" name="slidingColor" value="LOW-E GLASS" disabled><span data-sliding-text="lowEGlass">Low-e Glass</span></label>
+            <label><input type="radio" name="slidingColor" value="OTHER"><span data-sliding-text="other">Other</span></label>
+            <div id="slidingOtherRow" class="sliding-other-row" hidden>
+              <input id="slidingOtherColor" class="sliding-other-input" type="text" placeholder="Enter custom glass color" autocomplete="off">
+            </div>
+          </section>
+          <div class="sliding-auto-fields">
+            <label class="sliding-summary-field sliding-poz-field"><span data-sliding-text="pozNo">Position No.</span><input id="slidingPozNo" type="text" readonly></label>
+            <label class="sliding-summary-field"><span><span data-sliding-text="width">Width *</span> <small>(mm)</small></span><input id="slidingWidth" type="text" readonly></label>
+            <label class="sliding-summary-field"><span><span data-sliding-text="height">Height *</span> <small>(mm)</small></span><input id="slidingHeight" type="text" readonly></label>
+            <label class="sliding-summary-field sliding-panel-field"><span data-sliding-text="panelCount">Panel Count</span><input id="slidingPanelCount" type="text" readonly></label>
+          </div>
+        </div>
+        <input id="slidingQuantity" type="hidden" value="1">
+        <div id="slidingDetailsError" class="dim-edit-error sliding-details-error" aria-live="polite"></div>
+        <div class="dim-edit-actions sliding-details-actions">
+          <button id="slidingDetailsCancel" type="button" class="dim-edit-cancel" data-sliding-text="cancel">Cancel</button>
+          <button type="submit" class="dim-edit-apply" data-sliding-text="confirm">Confirm</button>
+        </div>
+      </form>`;
+    previewPanel.appendChild(overlay);
+    translateSlidingDetailsOverlay(overlay);
+
+    const form = overlay.querySelector('#slidingDetailsForm');
+    const otherInput = overlay.querySelector('#slidingOtherColor');
+    const error = overlay.querySelector('#slidingDetailsError');
+
+    const checkedValue = name => (overlay.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
+    const refreshRules = () => {
+      const series = checkedValue('slidingSeries');
+      const thickness10 = overlay.querySelector('input[name="slidingThickness"][value="10 MM"]');
+      const isK = series === 'K SERIES';
+      thickness10.disabled = isK;
+      overlay.querySelector('#slidingThickness10Wrap').classList.toggle('is-disabled', isK);
+      if (isK && thickness10.checked) overlay.querySelector('input[name="slidingThickness"][value="8 MM"]').checked = true;
+      const thickness = checkedValue('slidingThickness');
+      const lowE = overlay.querySelector('input[name="slidingColor"][value="LOW-E GLASS"]');
+      const lowEActive = thickness === 'INSULATED GLASS';
+      lowE.disabled = !lowEActive;
+      overlay.querySelector('#slidingLowEWrap').classList.toggle('is-disabled', !lowEActive);
+      if (!lowEActive && lowE.checked) overlay.querySelector('input[name="slidingColor"][value="TRANSPARENT"]').checked = true;
+      const color = checkedValue('slidingColor');
+      overlay.querySelector('#slidingOtherRow').hidden = color !== 'OTHER';
+      const width = Number(overlay.querySelector('#slidingWidth').value) || 1;
+      overlay.querySelector('#slidingPanelCount').value = String(slidingPanelCount(width, checkedValue('slidingOpening')));
+      error.textContent = '';
+    };
+
+    overlay.querySelectorAll('input[type="radio"]').forEach(radio => radio.addEventListener('change', refreshRules));
+    otherInput.addEventListener('input', () => { error.textContent = ''; });
+
+    const close = () => {
+      overlay.hidden = true;
+      pendingSlidingPlacementMeta = null;
+      focusPreviewCanvas();
+    };
+    overlay.querySelector('#slidingDetailsCancel').addEventListener('click', close);
+    overlay.querySelector('#slidingDetailsClose').addEventListener('click', close);
+    overlay.addEventListener('mousedown', evt => { if (evt.target === overlay) close(); });
+    overlay.addEventListener('keydown', evt => { if (evt.key === 'Escape') { evt.preventDefault(); close(); } });
+
+    form.addEventListener('submit', evt => {
+      evt.preventDefault();
+      if (!pendingSlidingPlacementMeta) return;
+      const qty = 1;
+      let glassColor = checkedValue('slidingColor');
+      if (glassColor === 'OTHER') {
+        glassColor = String(otherInput.value || '').trim().toUpperCase();
+        if (!glassColor) {
+          error.textContent = (SLIDING_UI_TEXT[currentLanguage] || SLIDING_UI_TEXT.tr).otherRequired;
+          otherInput.focus();
+          return;
+        }
+      }
+      const meta = pendingSlidingPlacementMeta;
+      const width = Math.max(1, Number(overlay.querySelector('#slidingWidth').value) || 1);
+      const height = Math.max(1, Number(overlay.querySelector('#slidingHeight').value) || 1);
+      const openingType = checkedValue('slidingOpening');
+      const placement = {
+        id: `sliding_${Date.now()}_${meta.index}`,
+        gapIndex: Number(meta.index) || 0,
+        series: checkedValue('slidingSeries'),
+        type: checkedValue('slidingType'),
+        openingType,
+        glassThickness: checkedValue('slidingThickness'),
+        glassColor,
+        width,
+        height,
+        panelCount: slidingPanelCount(width, openingType),
+        quantity: Math.round(qty),
+        pozNo: overlay.querySelector('#slidingPozNo').value,
+        leftPostStandard: true
+      };
+      slidingPlacements = slidingPlacements.filter(item => Number(item.gapIndex) !== Number(placement.gapIndex));
+      guillotinePlacements = guillotinePlacements.filter(item => Number(item.gapIndex) !== Number(placement.gapIndex));
+      slidingPlacements.push(placement);
+      overlay.hidden = true;
+      pendingSlidingPlacementMeta = null;
+      suppressFormPreviewUpdate = true;
+      try { updatePreview(false); }
+      finally { window.setTimeout(() => { suppressFormPreviewUpdate = false; }, 450); }
+      const slidingTxt = SLIDING_UI_TEXT[currentLanguage] || SLIDING_UI_TEXT.tr;
+      statusText.textContent = slidingTxt.placed(placement.pozNo, placement.gapIndex + 1, placement.gapIndex + 2);
+    });
+    return overlay;
+  }
+
+  function showSlidingDetailsOverlay(meta) {
+    const overlay = ensureSlidingDetailsOverlay();
+    translateSlidingDetailsOverlay(overlay);
+    pendingSlidingPlacementMeta = { ...meta };
+    const gap = Math.max(1, Number(meta.value) || 1);
+    const width = Math.max(1, gap - 5);
+    const d = lastDrawing && lastDrawing.input ? lastDrawing.input : {};
+    const height = Math.max(1, Number(d.frontHeight || 0) - Number(d.parapetHeight || 0) - 5);
+    overlay.querySelectorAll('input[name="slidingSeries"]').forEach(el => { el.checked = el.value === 'A SERIES'; });
+    overlay.querySelectorAll('input[name="slidingType"]').forEach(el => { el.checked = el.value === 'WITH THRESHOLD'; });
+    overlay.querySelectorAll('input[name="slidingOpening"]').forEach(el => { el.checked = el.value === 'SIDE OPENING'; });
+    overlay.querySelectorAll('input[name="slidingThickness"]').forEach(el => { el.checked = el.value === '10 MM'; });
+    overlay.querySelectorAll('input[name="slidingColor"]').forEach(el => { el.checked = el.value === 'TRANSPARENT'; });
+    overlay.querySelector('#slidingOtherColor').value = '';
+    overlay.querySelector('#slidingOtherRow').hidden = true;
+    overlay.querySelector('#slidingWidth').value = String(Math.round(width));
+    overlay.querySelector('#slidingHeight').value = String(Math.round(height));
+    overlay.querySelector('#slidingPanelCount').value = String(slidingPanelCount(width, 'SIDE OPENING'));
+    overlay.querySelector('#slidingQuantity').value = '1';
+    const existingPlacement = slidingPlacements.find(item => Number(item.gapIndex) === Number(meta.index));
+    overlay.querySelector('#slidingPozNo').value = existingPlacement ? existingPlacement.pozNo : nextSlidingPozNo();
+    overlay.querySelector('#slidingDetailsError').textContent = '';
+    overlay.hidden = false;
+    overlay.querySelector('input[name="slidingSeries"]:checked').dispatchEvent(new Event('change', { bubbles: true }));
+    window.setTimeout(() => overlay.querySelector('input[name="slidingSeries"]:checked').focus({ preventScroll: true }), 20);
+  }
+
+
+  function nextGuillotinePozNo() {
+    const used = new Set(guillotinePlacements.map(item => String(item.pozNo || '').toUpperCase()));
+    let n = 1;
+    while (used.has(`G${String(n).padStart(2, '0')}`)) n += 1;
+    return `G${String(n).padStart(2, '0')}`;
+  }
+
+  function ensureGuillotineDetailsOverlay() {
+    let overlay = $('guillotineDetailsOverlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'guillotineDetailsOverlay';
+    overlay.className = 'dim-edit-overlay sliding-details-overlay guillotine-details-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <form id="guillotineDetailsForm" class="dim-edit-card sliding-details-card guillotine-details-card">
+        <div class="sliding-modal-head">
+          <div class="sliding-modal-title"><span class="guillotine-title-icon" aria-hidden="true"></span><span data-guillotine-text="title">Guillotine Details</span></div>
+          <button id="guillotineDetailsClose" class="sliding-modal-close" type="button" aria-label="Close"><span aria-hidden="true"></span></button>
+        </div>
+        <div class="guillotine-details-grid">
+          <section class="sliding-choice-group guillotine-series-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-series" aria-hidden="true"></span><span data-guillotine-text="productSeries">Product Series</span></div>
+            <label><input type="radio" name="guillotineSeries" value="A SERIES" checked><span data-guillotine-text="aSeries">A Series</span></label>
+            <label><input type="radio" name="guillotineSeries" value="K SERIES"><span data-guillotine-text="kSeries">K Series</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-type-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-type" aria-hidden="true"></span><span data-guillotine-text="type">Type</span></div>
+            <label><input type="radio" name="guillotineType" value="STANDARD" checked><span data-guillotine-text="standard">Standard</span></label>
+            <label><input type="radio" name="guillotineType" value="CLEANABLE"><span data-guillotine-text="cleanable">Cleanable</span></label>
+            <label id="guillotineUpwardWrap"><input type="radio" name="guillotineType" value="UPWARD COLLECTING"><span data-guillotine-text="upwardCollecting">Upward Collecting</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-mechanism-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-mechanism" aria-hidden="true"></span><span data-guillotine-text="mechanism">Mechanism</span></div>
+            <label id="guillotineChainWrap"><input type="radio" name="guillotineMechanism" value="CHAIN" checked><span data-guillotine-text="chain">Chain</span></label>
+            <label><input type="radio" name="guillotineMechanism" value="BELT"><span data-guillotine-text="belt">Belt</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-thickness-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-thickness" aria-hidden="true"></span><span data-guillotine-text="glassThickness">Glass Thickness</span></div>
+            <label id="guillotine8mmWrap"><input type="radio" name="guillotineThickness" value="8 MM" checked><span data-guillotine-text="mm8">8 mm</span></label>
+            <label><input type="radio" name="guillotineThickness" value="INSULATED GLASS"><span data-guillotine-text="insulatedGlass">Insulated Glass</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-panel-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-panel" aria-hidden="true"></span><span data-guillotine-text="panelCount">Panel Type</span></div>
+            <label><input type="radio" name="guillotinePanel" value="1+1" checked><span data-guillotine-text="panel11">1+1</span></label>
+            <label><input type="radio" name="guillotinePanel" value="1+2"><span data-guillotine-text="panel12">1+2</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-motor-direction-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-direction" aria-hidden="true"></span><span data-guillotine-text="motorDirection">Motor Direction</span></div>
+            <label><input type="radio" name="guillotineMotorDirection" value="RIGHT" checked><span data-guillotine-text="right">Right</span></label>
+            <label><input type="radio" name="guillotineMotorDirection" value="LEFT"><span data-guillotine-text="left">Left</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-view-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-view" aria-hidden="true"></span><span data-guillotine-text="view">View</span></div>
+            <label><input type="radio" name="guillotineView" value="INSIDE VIEW" checked><span data-guillotine-text="insideView">Inside View</span></label>
+            <label><input type="radio" name="guillotineView" value="OUTSIDE VIEW"><span data-guillotine-text="outsideView">Outside View</span></label>
+          </section>
+          <section class="sliding-choice-group guillotine-motor-type-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-motor" aria-hidden="true"></span><span data-guillotine-text="motorType">Motor Type</span></div>
+            <label><input type="radio" name="guillotineMotorType" value="SOMFY RTS" checked><span data-guillotine-text="somfyRts">Somfy RTS</span></label>
+            <label><input type="radio" name="guillotineMotorType" value="SOMFY IO"><span data-guillotine-text="somfyIo">Somfy IO</span></label>
+            <label><input type="radio" name="guillotineMotorType" value="RISING"><span data-guillotine-text="rising">Rising</span></label>
+          </section>
+          <section class="sliding-choice-group sliding-color-group guillotine-color-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-color" aria-hidden="true"></span><span data-guillotine-text="glassColor">Glass Color</span></div>
+            <label><input type="radio" name="guillotineColor" value="TRANSPARENT" checked><span data-guillotine-text="transparent">Transparent</span></label>
+            <label><input type="radio" name="guillotineColor" value="GREY"><span data-guillotine-text="grey">Grey</span></label>
+            <label><input type="radio" name="guillotineColor" value="BRONZE"><span data-guillotine-text="bronze">Bronze</span></label>
+            <label id="guillotineLowEWrap"><input type="radio" name="guillotineColor" value="LOW-E GLASS" disabled><span data-guillotine-text="lowEGlass">Low-e Glass</span></label>
+            <label><input type="radio" name="guillotineColor" value="OTHER"><span data-guillotine-text="other">Other</span></label>
+            <div id="guillotineOtherRow" class="sliding-other-row" hidden><input id="guillotineOtherColor" class="sliding-other-input" type="text" autocomplete="off"></div>
+          </section>
+          <section class="sliding-choice-group guillotine-remote-group" role="group">
+            <div class="sliding-group-title"><span class="sliding-group-icon icon-remote" aria-hidden="true"></span><span data-guillotine-text="remoteControl">Remote Control</span></div>
+            <label><input type="radio" name="guillotineRemote" value="1 CHANNEL" checked><span data-guillotine-text="ch1">1 Channel</span></label>
+            <label><input type="radio" name="guillotineRemote" value="2 CHANNELS"><span data-guillotine-text="ch2">2 Channels</span></label>
+            <label><input type="radio" name="guillotineRemote" value="4 CHANNELS"><span data-guillotine-text="ch4">4 Channels</span></label>
+            <label><input type="radio" name="guillotineRemote" value="6 CHANNELS"><span data-guillotine-text="ch6">6 Channels</span></label>
+            <label><input type="radio" name="guillotineRemote" value="16 CHANNELS"><span data-guillotine-text="ch16">16 Channels</span></label>
+            <label><input type="radio" name="guillotineRemote" value="40 CHANNELS"><span data-guillotine-text="ch40">40 Channels</span></label>
+          </section>
+          <div class="sliding-auto-fields guillotine-auto-fields">
+            <label class="sliding-summary-field sliding-poz-field"><span data-guillotine-text="pozNo">Position No.</span><input id="guillotinePozNo" type="text" readonly></label>
+            <label class="sliding-summary-field"><span><span data-guillotine-text="width">Width *</span> <small>(mm)</small></span><input id="guillotineWidth" type="text" readonly></label>
+            <label class="sliding-summary-field"><span><span data-guillotine-text="height">Height *</span> <small>(mm)</small></span><input id="guillotineHeight" type="text" readonly></label>
+          </div>
+        </div>
+        <div id="guillotineDetailsError" class="dim-edit-error sliding-details-error" aria-live="polite"></div>
+        <div class="dim-edit-actions sliding-details-actions">
+          <button id="guillotineDetailsCancel" type="button" class="dim-edit-cancel" data-guillotine-text="cancel">Cancel</button>
+          <button type="submit" class="dim-edit-apply" data-guillotine-text="confirm">Confirm</button>
+        </div>
+      </form>`;
+    previewPanel.appendChild(overlay);
+    translateGuillotineDetailsOverlay(overlay);
+
+    const form = overlay.querySelector('#guillotineDetailsForm');
+    const error = overlay.querySelector('#guillotineDetailsError');
+    const otherInput = overlay.querySelector('#guillotineOtherColor');
+    const checkedValue = name => (overlay.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
+    const setDisabled = (wrapId, input, disabled) => {
+      input.disabled = disabled;
+      overlay.querySelector(`#${wrapId}`).classList.toggle('is-disabled', disabled);
+    };
+    const refreshRules = () => {
+      const isK = checkedValue('guillotineSeries') === 'K SERIES';
+      const mm8 = overlay.querySelector('input[name="guillotineThickness"][value="8 MM"]');
+      const insulated = overlay.querySelector('input[name="guillotineThickness"][value="INSULATED GLASS"]');
+      setDisabled('guillotine8mmWrap', mm8, isK);
+      if (isK && mm8.checked) insulated.checked = true;
+      const upward = overlay.querySelector('input[name="guillotineType"][value="UPWARD COLLECTING"]');
+      setDisabled('guillotineUpwardWrap', upward, isK);
+      if (isK && upward.checked) overlay.querySelector('input[name="guillotineType"][value="STANDARD"]').checked = true;
+      const chain = overlay.querySelector('input[name="guillotineMechanism"][value="CHAIN"]');
+      setDisabled('guillotineChainWrap', chain, isK);
+      if (isK && chain.checked) overlay.querySelector('input[name="guillotineMechanism"][value="BELT"]').checked = true;
+      const lowE = overlay.querySelector('input[name="guillotineColor"][value="LOW-E GLASS"]');
+      const lowEActive = checkedValue('guillotineThickness') === 'INSULATED GLASS';
+      setDisabled('guillotineLowEWrap', lowE, !lowEActive);
+      if (!lowEActive && lowE.checked) overlay.querySelector('input[name="guillotineColor"][value="TRANSPARENT"]').checked = true;
+      overlay.querySelector('#guillotineOtherRow').hidden = checkedValue('guillotineColor') !== 'OTHER';
+      error.textContent = '';
+    };
+    overlay.querySelectorAll('input[type="radio"]').forEach(radio => radio.addEventListener('change', refreshRules));
+    otherInput.addEventListener('input', () => { error.textContent = ''; });
+    const close = () => { overlay.hidden = true; pendingGuillotinePlacementMeta = null; focusPreviewCanvas(); };
+    overlay.querySelector('#guillotineDetailsCancel').addEventListener('click', close);
+    overlay.querySelector('#guillotineDetailsClose').addEventListener('click', close);
+    overlay.addEventListener('mousedown', evt => { if (evt.target === overlay) close(); });
+    overlay.addEventListener('keydown', evt => { if (evt.key === 'Escape') { evt.preventDefault(); close(); } });
+    form.addEventListener('submit', evt => {
+      evt.preventDefault();
+      if (!pendingGuillotinePlacementMeta) return;
+      let glassColor = checkedValue('guillotineColor');
+      if (glassColor === 'OTHER') {
+        glassColor = String(otherInput.value || '').trim().toUpperCase();
+        if (!glassColor) {
+          error.textContent = (GUILLOTINE_UI_TEXT[currentLanguage] || GUILLOTINE_UI_TEXT.tr).otherRequired;
+          otherInput.focus();
+          return;
+        }
+      }
+      const meta = pendingGuillotinePlacementMeta;
+      const placement = {
+        id: `guillotine_${Date.now()}_${meta.index}`,
+        gapIndex: Number(meta.index) || 0,
+        series: checkedValue('guillotineSeries'),
+        type: checkedValue('guillotineType'),
+        mechanism: checkedValue('guillotineMechanism'),
+        glassThickness: checkedValue('guillotineThickness'),
+        glassColor,
+        panelCount: checkedValue('guillotinePanel'),
+        motorDirection: checkedValue('guillotineMotorDirection'),
+        view: checkedValue('guillotineView'),
+        motorType: checkedValue('guillotineMotorType'),
+        remoteControl: checkedValue('guillotineRemote'),
+        width: Math.max(1, Number(overlay.querySelector('#guillotineWidth').value) || 1),
+        height: Math.max(1, Number(overlay.querySelector('#guillotineHeight').value) || 1),
+        quantity: 1,
+        pozNo: overlay.querySelector('#guillotinePozNo').value,
+        leftPostStandard: true
+      };
+      guillotinePlacements = guillotinePlacements.filter(item => Number(item.gapIndex) !== Number(placement.gapIndex));
+      slidingPlacements = slidingPlacements.filter(item => Number(item.gapIndex) !== Number(placement.gapIndex));
+      guillotinePlacements.push(placement);
+      overlay.hidden = true;
+      pendingGuillotinePlacementMeta = null;
+      suppressFormPreviewUpdate = true;
+      try { updatePreview(false); }
+      finally { window.setTimeout(() => { suppressFormPreviewUpdate = false; }, 450); }
+      const txt = GUILLOTINE_UI_TEXT[currentLanguage] || GUILLOTINE_UI_TEXT.tr;
+      statusText.textContent = txt.placed(placement.pozNo, placement.gapIndex + 1, placement.gapIndex + 2);
+    });
+    return overlay;
+  }
+
+  function showGuillotineDetailsOverlay(meta) {
+    const overlay = ensureGuillotineDetailsOverlay();
+    translateGuillotineDetailsOverlay(overlay);
+    pendingGuillotinePlacementMeta = { ...meta };
+    const gap = Math.max(1, Number(meta.value) || 1);
+    const width = Math.max(1, gap - 5);
+    const d = lastDrawing && lastDrawing.input ? lastDrawing.input : {};
+    const height = Math.max(1, Number(d.frontHeight || 0) - Number(d.parapetHeight || 0) - 5);
+    const defaults = {
+      guillotineSeries: 'A SERIES', guillotineType: 'STANDARD', guillotineMechanism: 'CHAIN',
+      guillotineThickness: '8 MM', guillotineColor: 'TRANSPARENT', guillotinePanel: '1+1',
+      guillotineMotorDirection: 'RIGHT', guillotineView: 'INSIDE VIEW', guillotineMotorType: 'SOMFY RTS',
+      guillotineRemote: '1 CHANNEL'
+    };
+    Object.entries(defaults).forEach(([name, value]) => overlay.querySelectorAll(`input[name="${name}"]`).forEach(el => { el.checked = el.value === value; }));
+    overlay.querySelector('#guillotineOtherColor').value = '';
+    overlay.querySelector('#guillotineOtherRow').hidden = true;
+    overlay.querySelector('#guillotineWidth').value = String(Math.round(width));
+    overlay.querySelector('#guillotineHeight').value = String(Math.round(height));
+    const existing = guillotinePlacements.find(item => Number(item.gapIndex) === Number(meta.index));
+    overlay.querySelector('#guillotinePozNo').value = existing ? existing.pozNo : nextGuillotinePozNo();
+    overlay.querySelector('#guillotineDetailsError').textContent = '';
+    overlay.hidden = false;
+    overlay.querySelector('input[name="guillotineSeries"]:checked').dispatchEvent(new Event('change', { bubbles: true }));
+    window.setTimeout(() => overlay.querySelector('input[name="guillotineSeries"]:checked').focus({ preventScroll: true }), 20);
+  }
+
   function ensureDimensionEditOverlay() {
     let overlay = $('dimensionEditOverlay');
     if (overlay) return overlay;
@@ -770,12 +1315,10 @@
     const refreshActionOptions = () => {
       const action = (overlay.querySelector('input[name="dimensionAction"]:checked') || {}).value || 'resize';
       overlay.querySelector('#productOptionWrap').hidden = action !== 'placeProduct';
-      overlay.querySelector('#profileOptionWrap').hidden = !['addSameProfile', 'addDifferentProfile', 'editProfile'].includes(action);
-      const prof = SMART_PROFILE_OPTIONS.find(p => p.id === profileSelect.value) || SMART_PROFILE_OPTIONS[0];
-      const hint = currentLanguage === 'en'
-        ? `View relation: side view ${prof.side} mm / top view ${prof.top} mm.`
-        : `Görünüş ilişkisi: yan görünüş ${prof.side} mm / üst görünüş ${prof.top} mm.`;
-      overlay.querySelector('#dimensionProfileHint').textContent = ['addSameProfile', 'addDifferentProfile', 'editProfile'].includes(action) ? hint : '';
+      overlay.querySelector('#profileOptionWrap').hidden = true;
+      profileSelect.disabled = true;
+      overlay.querySelector('#dimensionProfileHint').textContent = '';
+      input.disabled = action !== 'resize';
     };
 
     overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => r.addEventListener('change', refreshActionOptions));
@@ -809,13 +1352,23 @@
       };
 
       if (action === 'resize') {
-        if (!meta.canResize || String(meta.field || '').startsWith('__')) {
-          error.textContent = currentLanguage === 'en' ? 'This dimension is not connected to a direct resize field yet.' : 'Bu ölçü henüz doğrudan ölçü değiştirme alanına bağlı değil.';
-          return;
-        }
         if (!clean || Number(clean) <= 0) {
           error.textContent = currentLanguage === 'en' ? 'Enter a positive number.' : 'Pozitif bir sayı gir.';
           input.focus();
+          return;
+        }
+        if (isFrontPostGapMeta(meta)) {
+          try {
+            resizeFrontPostGap(meta, Number(clean));
+          } catch (err) {
+            error.textContent = err.message;
+            return;
+          }
+          finishUpdate(currentLanguage === 'en' ? 'Post gap updated.' : 'Dikme aralığı güncellendi.');
+          return;
+        }
+        if (!meta.canResize || String(meta.field || '').startsWith('__')) {
+          error.textContent = currentLanguage === 'en' ? 'This dimension is not connected to a direct resize field yet.' : 'Bu ölçü henüz doğrudan ölçü değiştirme alanına bağlı değil.';
           return;
         }
         const editedEl = $(meta.field);
@@ -847,12 +1400,15 @@
       }
 
       if (action === 'placeProduct') {
-        const productId = productSelect.value;
-        const product = SMART_PRODUCT_OPTIONS.find(p => p.id === productId) || SMART_PRODUCT_OPTIONS[0];
-        statusText.textContent = currentLanguage === 'en'
-          ? `Product placement infrastructure is ready for this zone: ${product.en}. Detailed product drawing will be connected later.`
-          : `Bu zone için ürün yerleşim altyapısı hazırlandı: ${product.tr}. Detay ürün çizimi sonraki aşamada bağlanacak.`;
-        closeOverlay();
+        if (!isFrontPostGapMeta(meta)) {
+          error.textContent = currentLanguage === 'en' ? 'Products can currently be placed only between two posts in the front view.' : 'Ürünler şimdilik yalnızca ön görünüşte iki dikme arasına yerleştirilebilir.';
+          return;
+        }
+        const selectedProduct = productSelect.value || 'sliding_glass';
+        overlay.hidden = true;
+        pendingDimensionEdit = null;
+        if (selectedProduct === 'guillotine_glass') showGuillotineDetailsOverlay(meta);
+        else showSlidingDetailsOverlay(meta);
       }
     });
 
@@ -890,12 +1446,14 @@
     overlay.querySelector('#dimensionProductSelect').querySelectorAll('option').forEach((opt, i) => { const p = SMART_PRODUCT_OPTIONS[i]; if (p) opt.textContent = isEn ? p.en : p.tr; });
     overlay.querySelector('#dimensionProfileSelect').querySelectorAll('option').forEach((opt, i) => { const p = SMART_PROFILE_OPTIONS[i]; if (p) opt.textContent = isEn ? p.en : p.tr; });
 
+    const frontPostGap = isFrontPostGapMeta(meta);
+    const postCountForGap = lastDrawing && lastDrawing.input ? Number(lastDrawing.input.postCount) || 0 : 0;
     const actionMap = {
-      resize: !!meta.canResize,
-      addSameProfile: !!meta.canAddSameProfile,
-      addDifferentProfile: !!meta.canAddDifferentProfile,
-      placeProduct: !!meta.canPlaceProduct,
-      editProfile: !!meta.canAddDifferentProfile || !!meta.profileInstanceId
+      resize: frontPostGap ? (!!meta.canResize && postCountForGap > 2) : !!meta.canResize,
+      addSameProfile: false,
+      addDifferentProfile: false,
+      placeProduct: frontPostGap && !!meta.canPlaceProduct,
+      editProfile: false
     };
     overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => {
       r.disabled = !actionMap[r.value];
@@ -907,7 +1465,14 @@
     const input = overlay.querySelector('#dimensionEditInput');
     input.value = String(currentEditableListValue(meta.field, meta.index, meta.value) || '').replace(/[^0-9]/g, '');
     input.disabled = !(firstAllowed && firstAllowed.value === 'resize');
-    overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => r.addEventListener('change', () => { input.disabled = r.value !== 'resize' || r.disabled; }, { once: false }));
+    overlay.querySelectorAll('input[name="dimensionAction"]').forEach(r => {
+      r.onchange = () => {
+        input.disabled = r.value !== 'resize' || r.disabled;
+        overlay.querySelector('#productOptionWrap').hidden = r.value !== 'placeProduct';
+      };
+    });
+    overlay.querySelector('#dimensionProfileSelect').disabled = true;
+    overlay.querySelector('#profileOptionWrap').classList.add('is-disabled');
     overlay.hidden = false;
     const profileSelect = overlay.querySelector('#dimensionProfileSelect');
     profileSelect.dispatchEvent(new Event('change'));
@@ -1137,6 +1702,9 @@
         postEl.dataset.userEdited = 'true';
       }
       manualPostPlacementMode = mode === 'equal' ? 'equal' : 'standard';
+      customFrontPostCenters = null;
+      slidingPlacements = [];
+      guillotinePlacements = [];
       overlay.hidden = true;
       updatePreview(false);
       statusText.textContent = currentLanguage === 'en'
@@ -1288,7 +1856,7 @@
   }
 
   function buildNameRoot(drawing) {
-    return window.PulumurDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_2_77-v${drawing.input.version}`);
+    return window.PulumurModernDXF.safeFileName(`${drawing.input.project}-${drawing.input.product}-web-dxf-v8_4_5-v${drawing.input.version}`);
   }
 
   function currentDxfDimensionHiddenLayers() {
@@ -1305,17 +1873,23 @@
       const drawing = updatePreview();
       if (!drawing) return;
       drawing.hiddenLayers = currentDxfDimensionHiddenLayers();
-      if (!window.PulumurDXF || typeof window.PulumurDXF.toDxf !== 'function') {
-        throw new Error('DXF motoru yüklenemedi. GitHub’a dxfEngine.js ve blocks klasörünü yüklediğinden emin ol.');
+      const engine = window.PulumurModernDXF;
+      if (!engine || typeof engine.toDxf !== 'function') {
+        throw new Error(currentLanguage === 'en'
+          ? 'The Modern DXF engine could not be loaded (modernDxfTemplate.js / dxfModernEngine.js).'
+          : 'Modern DXF motoru yüklenemedi (modernDxfTemplate.js / dxfModernEngine.js).');
       }
-      const dxf = window.PulumurDXF.toDxf(drawing);
-      if (!dxf || dxf.length < 100) throw new Error('DXF içeriği boş oluştu.');
+      const dxf = engine.toDxf(drawing);
+      if (!dxf || dxf.length < 100) throw new Error(currentLanguage === 'en' ? 'The generated DXF is empty.' : 'DXF içeriği boş oluştu.');
       const nameRoot = buildNameRoot(drawing);
       downloadText(`${nameRoot}.dxf`, dxf, 'application/dxf;charset=utf-8');
-      statusText.textContent = `DXF indirildi: ${nameRoot}.dxf`;
+      statusText.textContent = currentLanguage === 'en'
+        ? `DXF downloaded: ${nameRoot}.dxf`
+        : `DXF indirildi: ${nameRoot}.dxf`;
     } catch (err) {
-      statusText.textContent = `DXF oluşturma hatası: ${err.message}`;
-      window.alert(`DXF oluşturma hatası:
+      statusText.textContent = currentLanguage === 'en' ? `DXF generation error: ${err.message}` : `DXF oluşturma hatası: ${err.message}`;
+      window.alert(currentLanguage === 'en' ? `DXF generation error:
+${err.message}` : `DXF oluşturma hatası:
 ${err.message}`);
       console.error(err);
     }
@@ -1327,7 +1901,7 @@ ${err.message}`);
     if (existing) {
       return new Promise((resolve, reject) => {
         existing.addEventListener('load', () => resolve(window.jspdf && window.jspdf.jsPDF), { once: true });
-        existing.addEventListener('error', () => reject(new Error('jsPDF yüklenemedi.')), { once: true });
+        existing.addEventListener('error', () => reject(new Error(currentLanguage === 'en' ? 'jsPDF could not be loaded.' : 'jsPDF yüklenemedi.')), { once: true });
       });
     }
     return new Promise((resolve, reject) => {
@@ -1336,7 +1910,7 @@ ${err.message}`);
       script.async = true;
       script.dataset.jspdf = '1';
       script.onload = () => resolve(window.jspdf && window.jspdf.jsPDF);
-      script.onerror = () => reject(new Error('PDF kütüphanesi yüklenemedi.'));
+      script.onerror = () => reject(new Error(currentLanguage === 'en' ? 'PDF library could not be loaded.' : 'PDF kütüphanesi yüklenemedi.'));
       document.head.appendChild(script);
     });
   }
@@ -1459,7 +2033,7 @@ ${err.message}`);
       const drawing = updatePreview();
       if (!drawing) return;
       const jsPDF = await ensureJsPdf();
-      if (!jsPDF) throw new Error('PDF kütüphanesi aktif değil.');
+      if (!jsPDF) throw new Error(currentLanguage === 'en' ? 'PDF library is not available.' : 'PDF kütüphanesi aktif değil.');
       const flat = window.PulumurGeometry.flattenDrawingForExport
         ? window.PulumurGeometry.flattenDrawingForExport(drawing)
         : { bounds: window.PulumurGeometry.bounds(drawing.entities || []) };
@@ -1469,10 +2043,10 @@ ${err.message}`);
       const blob = pdf.output('blob');
       const nameRoot = buildNameRoot(drawing);
       downloadBlob(`${nameRoot}.pdf`, blob);
-      statusText.textContent = `PDF indirildi: ${nameRoot}.pdf`;
+      statusText.textContent = currentLanguage === 'en' ? `PDF downloaded: ${nameRoot}.pdf` : `PDF indirildi: ${nameRoot}.pdf`;
     } catch (err) {
-      statusText.textContent = `PDF oluşturma hatası: ${err.message}`;
-      window.alert(`PDF oluşturma hatası:\n${err.message}`);
+      statusText.textContent = currentLanguage === 'en' ? `PDF generation error: ${err.message}` : `PDF oluşturma hatası: ${err.message}`;
+      window.alert(currentLanguage === 'en' ? `PDF generation error:\n${err.message}` : `PDF oluşturma hatası:\n${err.message}`);
       console.error(err);
     } finally {
       preview.classList.remove('is-loading');
@@ -1592,6 +2166,7 @@ Pülümür Automation Studio, Pergo Rise Module 1 için DXF ve A0 PDF üretir.
 - Sistem ölçülerini mm olarak gir.
 - Önizleme otomatik oluşur.
 - PDF İndir veya DXF İndir butonlarını kullan.
+- DXF İndir butonu düzenlenebilir modern DXF dosyası üretir.
 
 2) Çoklu poz
 - Değerleri noktalı virgül (;) ile ayır.
@@ -1625,6 +2200,7 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
 - Enter the system dimensions in mm.
 - The preview is created automatically.
 - Use Download PDF or Download DXF.
+- Download DXF creates an editable modern DXF file.
 
 2) Multiple positions
 - Separate values with semicolon (;).
@@ -1834,7 +2410,7 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
         host.querySelectorAll('.quick-test-btn').forEach(x => x.classList.remove('active'));
         btn.classList.add('active');
         applyPresetValues(preset.values);
-        statusText.textContent = `${preset.name} yüklendi: ${preset.title}`;
+        statusText.textContent = currentLanguage === 'en' ? `${preset.name} loaded.` : `${preset.name} yüklendi: ${preset.title}`;
       });
     });
   }
@@ -1902,6 +2478,11 @@ Pulumur Automation Studio creates DXF and A0 PDF files for Pergo Rise Module 1.
         if (id === 'width') {
           if ($('rayCount')) $('rayCount').dataset.userEdited = 'false';
           if ($('postCount')) $('postCount').dataset.userEdited = 'false';
+        }
+        if (['systemCount', 'width', 'rayCount', 'postCount'].includes(id)) {
+          customFrontPostCenters = null;
+          slidingPlacements = [];
+          guillotinePlacements = [];
         }
         if (['systemCount', 'width', 'frontHeight', 'glassTrack'].includes(id)) {
           applyAutoRayPost(false);
